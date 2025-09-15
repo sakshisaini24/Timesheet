@@ -6,6 +6,10 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
+from fpdf import FPDF
 from simple_salesforce import Salesforce
 
 # Import the Salesforce connection function from your separate file
@@ -64,8 +68,8 @@ def create_timesheet_pdf(submitted_data):
 
 def send_timesheet_email(pdf_path, user_email):
     """Sends an email with the generated PDF attached."""
-    sender_email = "your.email@gmail.com"
-    sender_password = "YOUR_EMAIL_APP_PASSWORD"
+    sender_email = "sakshi.tech24@gmail.com"
+    sender_password = "Guddu@240802"
     
     msg = MIMEMultipart()
     msg['From'] = sender_email
@@ -297,3 +301,4 @@ def update_draft_from_chat(message):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
