@@ -43,19 +43,27 @@ def get_calendar_service():
 
 def generate_timesheet_draft():
     """Fetches calendar events and generates a timesheet draft."""
-    service = get_calendar_service()
-    
-    today = datetime.date.today()
-    start_of_week = today - datetime.timedelta(days=today.weekday())
-    end_of_week = start_of_week + datetime.timedelta(days=4)
-    
-    timeMin = datetime.datetime.combine(start_of_week, datetime.time.min).isoformat() + 'Z'
-    timeMax = datetime.datetime.combine(end_of_week, datetime.time.max).isoformat() + 'Z'
+    try:
+        service = get_calendar_service()
+    except Exception as e:
+        print(f"Error getting calendar service: {e}")
+        return {'status': 'error', 'message': 'Calendar service failed to connect.'}
 
-    events_result = service.events().list(calendarId='primary', timeMin=timeMin,
-                                          timeMax=timeMax, singleEvents=True,
-                                          orderBy='startTime').execute()
-    events = events_result.get('items', [])
+    try:
+        today = datetime.date.today()
+        start_of_week = today - datetime.timedelta(days=today.weekday())
+        end_of_week = start_of_week + datetime.timedelta(days=4)
+        
+        timeMin = datetime.datetime.combine(start_of_week, datetime.time.min).isoformat() + 'Z'
+        timeMax = datetime.datetime.combine(end_of_week, datetime.time.max).isoformat() + 'Z'
+
+        events_result = service.events().list(calendarId='primary', timeMin=timeMin,
+                                              timeMax=timeMax, singleEvents=True,
+                                              orderBy='startTime').execute()
+        events = events_result.get('items', [])
+    except Exception as e:
+        print(f"Error fetching calendar events: {e}")
+        return {'status': 'error', 'message': 'Failed to fetch calendar events.'}
     
     timesheet = {}
     for i in range(5):
@@ -88,7 +96,7 @@ def generate_timesheet_draft():
                 data['data']['Misc'] = round(misc_hours, 2)
                 
     return timesheet
-
+    
 def submit_to_salesforce(submitted_data):
     """Connects to SF, creates timesheet records, and submits for approval."""
     sf = connect_to_salesforce()
@@ -184,4 +192,5 @@ def generate_bot_response(user_message):
 
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
+
     print("Draft generated:", draft)
