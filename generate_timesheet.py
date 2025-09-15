@@ -28,6 +28,65 @@ PICKLIST_MAPPING = {
 
 _TIMESHEET_DRAFT = None
 
+def create_timesheet_pdf(submitted_data):
+    """Generates a PDF of the timesheet and returns the file path."""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    
+    # Header
+    pdf.cell(200, 10, txt="Timesheet Summary for the Week", ln=1, align="C")
+    pdf.ln(5)
+    
+    # Timesheet data
+    total_hours = 0
+    for day, hours_data in submitted_data.items():
+        daily_hours = sum(hours_data['data'].values())
+        total_hours += daily_hours
+        pdf.cell(200, 10, txt=f"{day} - {daily_hours} hours", ln=1)
+        for activity, hours in hours_data['data'].items():
+            pdf.cell(200, 10, txt=f"  - {activity}: {hours} hours", ln=1)
+    
+    # Productivity meter
+    pdf.ln(10)
+    pdf.set_font("Arial", 'B', 16)
+    if total_hours >= 40:
+        productivity_emoji = "🎉"
+    elif total_hours >= 32:
+        productivity_emoji = "😊"
+    else:
+        productivity_emoji = "🙃"
+    pdf.cell(200, 10, txt=f"Weekly Productivity: {total_hours} hours {productivity_emoji}", ln=1, align="C")
+    
+    # Save the PDF
+    pdf_path = f"timesheet_summary_{datetime.date.today().isoformat()}.pdf"
+    pdf.output(pdf_path)
+    return pdf_path
+
+def send_timesheet_email(pdf_path, user_email):
+    """Sends an email with the generated PDF attached."""
+    sender_email = "your.email@gmail.com"
+    sender_password = "YOUR_EMAIL_APP_PASSWORD"
+    
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = user_email
+    msg['Subject'] = "Your Weekly Timesheet Summary"
+    
+    with open(pdf_path, "rb") as f:
+        attach = MIMEApplication(f.read(), _subtype="pdf")
+        attach.add_header('Content-Disposition', 'attachment', filename=pdf_path)
+        msg.attach(attach)
+    
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(sender_email, sender_password)
+            smtp.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return False
+
 def get_calendar_service():
     creds = None
     credentials_json = os.environ.get('GOOGLE_CREDENTIALS_JSON')
@@ -237,8 +296,3 @@ def update_draft_from_chat(message):
                         return {'status': 'error', 'response': "I could not update the timesheet. Please try again."}
 
     return {'status': 'error', 'response': "I can only update hours for a specific day."}
-
-if __name__ == '__main__':
-    draft = generate_timesheet_draft()
-    print("Draft generated:", draft)
-
