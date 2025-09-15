@@ -2,11 +2,10 @@ import datetime
 import os.path
 import json
 import re
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.application import MIMEApplication
-from fpdf import FPDF
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
 from simple_salesforce import Salesforce
 
 # Import the Salesforce connection function from your separate file
@@ -27,8 +26,6 @@ PICKLIST_MAPPING = {
 }
 
 _TIMESHEET_DRAFT = None
-
-# --- NEW FUNCTIONS FOR PDF AND EMAIL ---
 
 def create_timesheet_pdf(submitted_data):
     """Generates a PDF of the timesheet and returns the file path."""
@@ -88,6 +85,7 @@ def send_timesheet_email(pdf_path, user_email):
     except Exception as e:
         print(f"Error sending email: {e}")
         return False
+
 
 def get_calendar_service():
     creds = None
@@ -173,13 +171,12 @@ def submit_to_salesforce(submitted_data):
         return {'status': 'error', 'message': 'Salesforce connection failed.'}
 
     try:
-        user_info = sf.query(f"SELECT Id, ManagerId, Email FROM User WHERE Username = 'sakshi.saini427@agentforce.com'")
+        user_info = sf.query(f"SELECT Id, ManagerId FROM User WHERE Username = 'sakshi.saini427@agentforce.com'")
         if not user_info['records']:
             return {'status': 'error', 'message': 'User not found in Salesforce.'}
         
         user_id = user_info['records'][0]['Id']
         manager_id = user_info['records'][0]['ManagerId']
-        user_email = user_info['records'][0]['Email']
         
         if not manager_id:
             return {'status': 'error', 'message': 'User does not have a manager assigned in Salesforce.'}
@@ -224,9 +221,6 @@ def submit_to_salesforce(submitted_data):
     except Exception as e:
         return {'status': 'error', 'message': f"Failed to submit for approval: {e}"}
 
-    pdf_path = create_timesheet_pdf(submitted_data)
-    send_timesheet_email(pdf_path, user_email)
-
     return {'status': 'success', 'results': {'message': 'Timesheet submitted for approval.', 'ids': created_ids}}
 
 def update_timesheet_draft(day, new_hours):
@@ -236,23 +230,6 @@ def update_timesheet_draft(day, new_hours):
         _TIMESHEET_DRAFT[day]['data']['Meetings'] = 0
         return True
     return False
-
-def update_draft_from_chat(message):
-    lower_message = message.lower()
-    
-    if ("change" in lower_message or "set" in lower_message) and ("hours" in lower_message or "time" in lower_message):
-        numbers = re.findall(r'\b\d+\b', lower_message)
-        hours = float(numbers[0]) if numbers else None
-        
-        for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
-            if day in lower_message:
-                if hours is not None:
-                    if update_timesheet_draft(day.capitalize(), hours):
-                        return {'status': 'success', 'response': f"Okay, I have set {hours} hours for {day.capitalize()}.", 'draft': _TIMESHEET_DRAFT}
-                    else:
-                        return {'status': 'error', 'response': "I could not update the timesheet. Please try again."}
-
-    return {'status': 'error', 'response': "I can only update hours for a specific day."}
     
 def generate_bot_response(user_message):
     global _TIMESHEET_DRAFT
@@ -298,6 +275,24 @@ def generate_bot_response(user_message):
         return "I couldn't understand that. Please specify the day and the number of hours."
 
     return "I can help with questions about your timesheet. Try asking me about your hours on a specific day."
+
+def update_draft_from_chat(message):
+    lower_message = message.lower()
+    
+    if ("change" in lower_message or "set" in lower_message) and ("hours" in lower_message or "time" in lower_message):
+        numbers = re.findall(r'\b\d+\b', lower_message)
+        hours = float(numbers[0]) if numbers else None
+        
+        for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
+            if day in lower_message:
+                if hours is not None:
+                    if update_timesheet_draft(day.capitalize(), hours):
+                        return {'status': 'success', 'response': f"Okay, I have set {hours} hours for {day.capitalize()}.", 'draft': _TIMESHEET_DRAFT}
+                    else:
+                        return {'status': 'error', 'response': "I could not update the timesheet. Please try again."}
+
+    return {'status': 'error', 'response': "I can only update hours for a specific day."}
+
 
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
