@@ -28,6 +28,8 @@ PICKLIST_MAPPING = {
 
 _TIMESHEET_DRAFT = None
 
+# --- NEW FUNCTIONS FOR PDF AND EMAIL ---
+
 def create_timesheet_pdf(submitted_data):
     """Generates a PDF of the timesheet and returns the file path."""
     pdf = FPDF()
@@ -234,6 +236,23 @@ def update_timesheet_draft(day, new_hours):
         _TIMESHEET_DRAFT[day]['data']['Meetings'] = 0
         return True
     return False
+
+def update_draft_from_chat(message):
+    lower_message = message.lower()
+    
+    if ("change" in lower_message or "set" in lower_message) and ("hours" in lower_message or "time" in lower_message):
+        numbers = re.findall(r'\b\d+\b', lower_message)
+        hours = float(numbers[0]) if numbers else None
+        
+        for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
+            if day in lower_message:
+                if hours is not None:
+                    if update_timesheet_draft(day.capitalize(), hours):
+                        return {'status': 'success', 'response': f"Okay, I have set {hours} hours for {day.capitalize()}.", 'draft': _TIMESHEET_DRAFT}
+                    else:
+                        return {'status': 'error', 'response': "I could not update the timesheet. Please try again."}
+
+    return {'status': 'error', 'response': "I can only update hours for a specific day."}
     
 def generate_bot_response(user_message):
     global _TIMESHEET_DRAFT
@@ -280,19 +299,6 @@ def generate_bot_response(user_message):
 
     return "I can help with questions about your timesheet. Try asking me about your hours on a specific day."
 
-def update_draft_from_chat(message):
-    lower_message = message.lower()
-    
-    if ("change" in lower_message or "set" in lower_message) and ("hours" in lower_message or "time" in lower_message):
-        numbers = re.findall(r'\b\d+\b', lower_message)
-        hours = float(numbers[0]) if numbers else None
-        
-        for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
-            if day in lower_message:
-                if hours is not None:
-                    if update_timesheet_draft(day.capitalize(), hours):
-                        return {'status': 'success', 'response': f"Okay, I have set {hours} hours for {day.capitalize()}.", 'draft': _TIMESHEET_DRAFT}
-                    else:
-                        return {'status': 'error', 'response': "I could not update the timesheet. Please try again."}
-
-    return {'status': 'error', 'response': "I can only update hours for a specific day."}
+if __name__ == '__main__':
+    draft = generate_timesheet_draft()
+    print("Draft generated:", draft)
