@@ -39,8 +39,9 @@ def chat():
     
     return jsonify({'response': bot_response})
 
-@app.route('/update_draft_from_chat', methods=['POST'])
-def update_draft_from_chat():
+# Corrected endpoint name to match JavaScript
+@app.route('/update_draft', methods=['POST'])
+def update_draft():
     data = request.json
     message = data.get('message', '')
 
