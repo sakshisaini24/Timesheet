@@ -5,10 +5,8 @@ import generate_timesheet
 app = Flask(__name__)
 CORS(app)
 
-
 @app.route('/generate_draft')
 def generate_draft():
-    """Endpoint to generate and return the timesheet draft as JSON."""
     try:
         draft = generate_timesheet.generate_timesheet_draft()
         return jsonify(draft)
@@ -18,7 +16,6 @@ def generate_draft():
 
 @app.route('/submit_timesheet', methods=['POST'])
 def submit_timesheet():
-    """Endpoint to receive confirmed data and submit to Salesforce."""
     try:
         data = request.json
         if not data:
@@ -35,7 +32,6 @@ def submit_timesheet():
     
 @app.route('/chat', methods=['POST'])
 def chat():
-    """Endpoint to handle free-form chat messages."""
     data = request.json
     message = data.get('message', '')
     
@@ -43,6 +39,16 @@ def chat():
     
     return jsonify({'response': bot_response})
 
-if __name__ == '__main__':
+@app.route('/update_draft', methods=['POST'])
+def update_draft():
+    data = request.json
+    day = data.get('day')
+    new_hours = data.get('hours')
 
+    # This function is in generate_timesheet.py
+    generate_timesheet.update_timesheet_draft(day, new_hours)
+
+    return jsonify({'status': 'success', 'message': 'Draft updated successfully.'})
+
+if __name__ == '__main__':
     app.run(debug=True, port=5000)
