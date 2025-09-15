@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import generate_timesheet
 
@@ -39,16 +39,16 @@ def chat():
     
     return jsonify({'response': bot_response})
 
-@app.route('/update_draft', methods=['POST'])
-def update_draft():
+# NEW ROUTE TO UPDATE THE DRAFT FROM CHAT
+@app.route('/update_draft_from_chat', methods=['POST'])
+def update_draft_from_chat():
     data = request.json
-    day = data.get('day')
-    new_hours = data.get('hours')
+    message = data.get('message', '')
 
-    # This function is in generate_timesheet.py
-    generate_timesheet.update_timesheet_draft(day, new_hours)
+    response = generate_timesheet.update_draft_from_chat(message)
+    
+    return jsonify(response)
 
-    return jsonify({'status': 'success', 'message': 'Draft updated successfully.'})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
