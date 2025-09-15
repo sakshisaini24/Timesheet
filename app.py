@@ -3,6 +3,8 @@ from flask_cors import CORS
 import generate_timesheet
 
 app = Flask(__name__)
+# The global CORS(app) is not working correctly for all requests.
+# Let's configure it explicitly for all endpoints.
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 @app.route('/generate_draft')
@@ -39,9 +41,8 @@ def chat():
     
     return jsonify({'response': bot_response})
 
-# Corrected route to update the draft from chat
-@app.route('/update_draft', methods=['POST'])
-def update_draft():
+@app.route('/update_draft_from_chat', methods=['POST'])
+def update_draft_from_chat():
     data = request.json
     message = data.get('message', '')
 
