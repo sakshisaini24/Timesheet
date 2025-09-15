@@ -29,26 +29,36 @@ PICKLIST_MAPPING = {
 def get_calendar_service():
     """Handles the authentication flow for Google Calendar."""
     creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    if not creds or not creds.valid:
+    
+    # Read credentials and token from environment variables
+    credentials_json = os.environ.get('GOOGLE_CREDENTIALS_JSON')
+    token_json = os.environ.get('GOOGLE_TOKEN_JSON')
+    
+    if token_json:
+        creds = Credentials.from_authorized_user_info(json.loads(token_json), SCOPES)
+    else:
+        # Since we can't run a local server on Render, we cannot re-authenticate
+        # if a token doesn't exist. We assume the token is always present.
+        print("Error: Google Calendar token not found in environment variables.")
+        return None
+
+    if not creds.valid:
         if creds and creds.expired and creds.refresh_token:
+            # We can still try to refresh the token if a valid one exists
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+            print("Error: Invalid or expired Google Calendar token. Cannot re-authenticate on Render.")
+            return None
+    
     return build('calendar', 'v3', credentials=creds)
 
 def generate_timesheet_draft():
     """Fetches calendar events and generates a timesheet draft."""
-    try:
-        service = get_calendar_service()
-    except Exception as e:
-        print(f"Error getting calendar service: {e}")
-        return {'status': 'error', 'message': 'Calendar service failed to connect.'}
-
+    service = get_calendar_service()
+    
+    if service is None:
+        return {'status': 'error', 'message': 'Google Calendar API token is not valid. Please provide a valid token in Render environment variables.'}
+    
     try:
         today = datetime.date.today()
         start_of_week = today - datetime.timedelta(days=today.weekday())
@@ -63,7 +73,7 @@ def generate_timesheet_draft():
         events = events_result.get('items', [])
     except Exception as e:
         print(f"Error fetching calendar events: {e}")
-        return {'status': 'error', 'message': 'Failed to fetch calendar events.'}
+        return {'status': 'error', 'message': f'Failed to fetch calendar events: {e}'}
     
     timesheet = {}
     for i in range(5):
@@ -96,7 +106,7 @@ def generate_timesheet_draft():
                 data['data']['Misc'] = round(misc_hours, 2)
                 
     return timesheet
-    
+
 def submit_to_salesforce(submitted_data):
     """Connects to SF, creates timesheet records, and submits for approval."""
     sf = connect_to_salesforce()
@@ -192,5 +202,4 @@ def generate_bot_response(user_message):
 
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
-
     print("Draft generated:", draft)
