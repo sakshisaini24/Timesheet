@@ -2,10 +2,11 @@ import datetime
 import os.path
 import json
 import re
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
+from fpdf import FPDF
 from simple_salesforce import Salesforce
 
 # Import the Salesforce connection function from your separate file
@@ -111,12 +112,13 @@ def submit_to_salesforce(submitted_data):
         return {'status': 'error', 'message': 'Salesforce connection failed.'}
 
     try:
-        user_info = sf.query(f"SELECT Id, ManagerId FROM User WHERE Username = 'sakshi.saini427@agentforce.com'")
+        user_info = sf.query(f"SELECT Id, ManagerId, Email FROM User WHERE Username = 'sakshi.saini427@agentforce.com'")
         if not user_info['records']:
             return {'status': 'error', 'message': 'User not found in Salesforce.'}
         
         user_id = user_info['records'][0]['Id']
         manager_id = user_info['records'][0]['ManagerId']
+        user_email = user_info['records'][0]['Email']
         
         if not manager_id:
             return {'status': 'error', 'message': 'User does not have a manager assigned in Salesforce.'}
@@ -160,6 +162,9 @@ def submit_to_salesforce(submitted_data):
         
     except Exception as e:
         return {'status': 'error', 'message': f"Failed to submit for approval: {e}"}
+
+    pdf_path = create_timesheet_pdf(submitted_data)
+    send_timesheet_email(pdf_path, user_email)
 
     return {'status': 'success', 'results': {'message': 'Timesheet submitted for approval.', 'ids': created_ids}}
 
@@ -233,7 +238,7 @@ def update_draft_from_chat(message):
 
     return {'status': 'error', 'response': "I can only update hours for a specific day."}
 
-
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
