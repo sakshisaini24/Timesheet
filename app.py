@@ -5,10 +5,6 @@ import generate_timesheet
 app = Flask(__name__)
 CORS(app)
 
-@app.route('/')
-def index():
-    """Renders the main chatbot UI page."""
-    return render_template('index.html')
 
 @app.route('/generate_draft')
 def generate_draft():
@@ -48,4 +44,5 @@ def chat():
     return jsonify({'response': bot_response})
 
 if __name__ == '__main__':
+
     app.run(debug=True, port=5000)
