@@ -8,6 +8,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from simple_salesforce import Salesforce
 
+# Import the Salesforce connection function from your separate file
 from sf_connect import connect_to_salesforce
 
 # Define the scopes needed for the Google Calendar API
@@ -28,7 +29,6 @@ _TIMESHEET_DRAFT = None
 
 def get_calendar_service():
     creds = None
-    
     credentials_json = os.environ.get('GOOGLE_CREDENTIALS_JSON')
     token_json = os.environ.get('GOOGLE_TOKEN_JSON')
     
@@ -50,14 +50,13 @@ def get_calendar_service():
 def generate_timesheet_draft():
     global _TIMESHEET_DRAFT
     if _TIMESHEET_DRAFT is not None:
-        return _TIMESHEET_DRAFT # Return the cached draft
+        return _TIMESHEET_DRAFT
     
     service = get_calendar_service()
     if service is None:
         return {'status': 'error', 'message': 'Google Calendar API token is not valid.'}
     
     try:
-        # ... (rest of the draft generation logic) ...
         today = datetime.date.today()
         start_of_week = today - datetime.timedelta(days=today.weekday())
         end_of_week = start_of_week + datetime.timedelta(days=4)
@@ -105,15 +104,6 @@ def generate_timesheet_draft():
                 
     _TIMESHEET_DRAFT = timesheet
     return _TIMESHEET_DRAFT
-
-# NEW FUNCTION TO UPDATE THE GLOBAL DRAFT
-def update_timesheet_draft(day, new_hours):
-    global _TIMESHEET_DRAFT
-    if _TIMESHEET_DRAFT and day in _TIMESHEET_DRAFT:
-        _TIMESHEET_DRAFT[day]['data']['Misc'] = new_hours
-        _TIMESHEET_DRAFT[day]['data']['Meetings'] = 0 # Assume user wants to override
-        return True
-    return False
 
 def submit_to_salesforce(submitted_data):
     # ... (same as before) ...
@@ -174,6 +164,15 @@ def submit_to_salesforce(submitted_data):
 
     return {'status': 'success', 'results': {'message': 'Timesheet submitted for approval.', 'ids': created_ids}}
 
+# NEW FUNCTION TO UPDATE THE GLOBAL DRAFT
+def update_timesheet_draft(day, new_hours):
+    global _TIMESHEET_DRAFT
+    if _TIMESHEET_DRAFT and day in _TIMESHEET_DRAFT:
+        _TIMESHEET_DRAFT[day]['data']['Misc'] = new_hours
+        _TIMESHEET_DRAFT[day]['data']['Meetings'] = 0
+        return True
+    return False
+
 def generate_bot_response(user_message):
     global _TIMESHEET_DRAFT
     lower_message = user_message.lower()
@@ -204,15 +203,17 @@ def generate_bot_response(user_message):
         return "Hello! I am your timesheet assistant. How can I help you with your timesheet draft?"
 
     elif ("change" in lower_message or "set" in lower_message) and ("hours" in lower_message or "time" in lower_message):
-        import re
         numbers = re.findall(r'\b\d+\b', lower_message)
         hours = float(numbers[0]) if numbers else None
         
         for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
             if day in lower_message:
                 if hours is not None:
-                    update_timesheet_draft(day.capitalize(), hours)
-                    return f"Okay, I have set {hours} hours for {day.capitalize()}. Let me know if you need to make any more changes."
+                    # UPDATED LINE: Check if update was successful
+                    if update_timesheet_draft(day.capitalize(), hours):
+                        return f"Okay, I have set {hours} hours for {day.capitalize()}. Let me know if you need to make any more changes."
+                    else:
+                        return "I could not update the timesheet. Please try again."
 
         return "I couldn't understand that. Please specify the day and the number of hours."
 
