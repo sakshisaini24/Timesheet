@@ -227,11 +227,12 @@ def update_draft_from_chat(message):
             if day in lower_message:
                 if hours is not None:
                     if update_timesheet_draft(day.capitalize(), hours):
-                        return {'status': 'success', 'response': f"Okay, I have set {hours} hours for {day.capitalize()}."}
+                        return {'status': 'success', 'response': f"Okay, I have set {hours} hours for {day.capitalize()}.", 'draft': _TIMESHEET_DRAFT}
                     else:
                         return {'status': 'error', 'response': "I could not update the timesheet. Please try again."}
 
     return {'status': 'error', 'response': "I can only update hours for a specific day."}
+
 
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
