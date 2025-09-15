@@ -3,7 +3,7 @@ from flask_cors import CORS
 import generate_timesheet
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 @app.route('/generate_draft')
 def generate_draft():
@@ -39,7 +39,6 @@ def chat():
     
     return jsonify({'response': bot_response})
 
-# NEW ROUTE TO UPDATE THE DRAFT FROM CHAT
 @app.route('/update_draft_from_chat', methods=['POST'])
 def update_draft_from_chat():
     data = request.json
