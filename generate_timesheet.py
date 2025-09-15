@@ -106,7 +106,6 @@ def generate_timesheet_draft():
     return _TIMESHEET_DRAFT
 
 def submit_to_salesforce(submitted_data):
-    # ... (same as before) ...
     sf = connect_to_salesforce()
     if not sf:
         return {'status': 'error', 'message': 'Salesforce connection failed.'}
@@ -164,7 +163,6 @@ def submit_to_salesforce(submitted_data):
 
     return {'status': 'success', 'results': {'message': 'Timesheet submitted for approval.', 'ids': created_ids}}
 
-# NEW FUNCTION TO UPDATE THE GLOBAL DRAFT
 def update_timesheet_draft(day, new_hours):
     global _TIMESHEET_DRAFT
     if _TIMESHEET_DRAFT and day in _TIMESHEET_DRAFT:
@@ -172,7 +170,7 @@ def update_timesheet_draft(day, new_hours):
         _TIMESHEET_DRAFT[day]['data']['Meetings'] = 0
         return True
     return False
-
+    
 def generate_bot_response(user_message):
     global _TIMESHEET_DRAFT
     lower_message = user_message.lower()
@@ -209,7 +207,6 @@ def generate_bot_response(user_message):
         for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
             if day in lower_message:
                 if hours is not None:
-                    # UPDATED LINE: Check if update was successful
                     if update_timesheet_draft(day.capitalize(), hours):
                         return f"Okay, I have set {hours} hours for {day.capitalize()}. Let me know if you need to make any more changes."
                     else:
@@ -218,6 +215,23 @@ def generate_bot_response(user_message):
         return "I couldn't understand that. Please specify the day and the number of hours."
 
     return "I can help with questions about your timesheet. Try asking me about your hours on a specific day."
+
+def update_draft_from_chat(message):
+    lower_message = message.lower()
+    
+    if ("change" in lower_message or "set" in lower_message) and ("hours" in lower_message or "time" in lower_message):
+        numbers = re.findall(r'\b\d+\b', lower_message)
+        hours = float(numbers[0]) if numbers else None
+        
+        for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
+            if day in lower_message:
+                if hours is not None:
+                    if update_timesheet_draft(day.capitalize(), hours):
+                        return {'status': 'success', 'response': f"Okay, I have set {hours} hours for {day.capitalize()}."}
+                    else:
+                        return {'status': 'error', 'response': "I could not update the timesheet. Please try again."}
+
+    return {'status': 'error', 'response': "I can only update hours for a specific day."}
 
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
