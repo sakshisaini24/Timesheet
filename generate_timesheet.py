@@ -69,7 +69,7 @@ def create_timesheet_pdf(submitted_data):
 def send_timesheet_email(pdf_path, user_email):
     """Sends an email with the generated PDF attached."""
     sender_email = "sakshi.tech24@gmail.com"
-    sender_password = "Guddu@240802"
+    sender_password = "jfkrgfursxdrhusp"
     
     msg = MIMEMultipart()
     msg['From'] = sender_email
@@ -301,4 +301,5 @@ def update_draft_from_chat(message):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
