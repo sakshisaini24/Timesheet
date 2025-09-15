@@ -1,0 +1,7 @@
+Flask
+Flask-Cors
+simple-salesforce
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2
+gunicorn
