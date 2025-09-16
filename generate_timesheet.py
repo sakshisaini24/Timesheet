@@ -67,27 +67,41 @@ def create_timesheet_pdf(submitted_data):
     return pdf_path
 
 def send_timesheet_email(pdf_path, user_email):
-    """Sends an email with the generated PDF attached."""
-    sender_email = "sakshi.tech24@gmail.com"
-    sender_password = "vsodzszodevjqkti"
-    
-    msg = MIMEMultipart()
-    msg['From'] = sender_email
-    msg['To'] = user_email
-    msg['Subject'] = "Your Weekly Timesheet Summary"
-    
-    with open(pdf_path, "rb") as f:
-        attach = MIMEApplication(f.read(), _subtype="pdf")
-        attach.add_header('Content-Disposition', 'attachment', filename=pdf_path)
-        msg.attach(attach)
-    
+    """Sends an email with the generated PDF attached using SendGrid."""
     try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(sender_email, sender_password)
-            smtp.send_message(msg)
+        api_key = os.environ.get('SENDGRID_API_KEY')
+        if not api_key:
+            print("Error: SendGrid API key not found in environment variables.")
+            return False
+
+        message = Mail(
+            from_email='sakshi.tech24@gmail.com', 
+            to_emails=user_email,
+            subject='Your Weekly Timesheet Summary',
+            plain_text_content='Please find your timesheet summary attached.'
+        )
+
+        # Attach the PDF
+        with open(pdf_path, 'rb') as f:
+            data = f.read()
+            encoded_file = base64.b64encode(data).decode()
+
+        attachedFile = Attachment(
+            file_content=encoded_file,
+            file_name=os.path.basename(pdf_path),
+            file_type=mimetypes.guess_type(pdf_path)[0],
+            disposition='attachment',
+            content_id='timesheet_summary_pdf'
+        )
+        message.attachment = attachedFile
+
+        sg = SendGridAPIClient(api_key)
+        response = sg.send(message)
+        print(f"Email sent with status code: {response.status_code}")
         return True
+
     except Exception as e:
-        print(f"Error sending email: {e}")
+        print(f"Error sending email with SendGrid: {e}")
         return False
 
 
@@ -301,6 +315,7 @@ def update_draft_from_chat(message):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
