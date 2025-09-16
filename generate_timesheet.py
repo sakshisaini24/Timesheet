@@ -80,7 +80,7 @@ def send_timesheet_email(pdf_path, user_email):
             return False
 
         message = Mail(
-            from_email='sakshi.tech24@gmail.com',
+            from_email='no-reply@timesheetbuddy.com',
             to_emails=user_email,
             subject='Your Weekly Timesheet Summary',
             plain_text_content='Please find your timesheet summary attached.'
@@ -326,6 +326,7 @@ def update_draft_from_chat(message):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
