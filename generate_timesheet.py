@@ -201,8 +201,6 @@ def submit_to_salesforce(submitted_data):
         user_id = user_info['records'][0]['Id']
         manager_id = user_info['records'][0]['ManagerId']
         user_email = user_info['records'][0]['Email']
-        # ADD THIS DEBUGGING PRINT STATEMENT
-        print(f"DEBUG: User Email Retrieved: {user_email}")
         
         if not manager_id:
             return {'status': 'error', 'message': 'User does not have a manager assigned in Salesforce.'}
@@ -251,6 +249,7 @@ def submit_to_salesforce(submitted_data):
     send_timesheet_email(pdf_path, user_email)
 
     return {'status': 'success', 'results': {'message': 'Timesheet submitted for approval.', 'ids': created_ids}}
+
 
 def update_timesheet_draft(day, new_hours):
     global _TIMESHEET_DRAFT
@@ -326,6 +325,7 @@ def update_draft_from_chat(message):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
