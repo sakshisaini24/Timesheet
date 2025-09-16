@@ -53,3 +53,16 @@ def update_draft_from_chat():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
+
+@app.route('/download_pdf')
+def download_pdf():
+    try:
+        # A simple way to get the file path for a prototype
+        pdf_path = generate_timesheet._LAST_PDF_PATH
+        if not pdf_path or not os.path.exists(pdf_path):
+            return jsonify({"status": "error", "message": "PDF not found."}), 404
+        
+        return send_file(pdf_path, as_attachment=True, download_name=os.path.basename(pdf_path))
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
