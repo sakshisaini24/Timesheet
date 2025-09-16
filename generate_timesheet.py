@@ -28,7 +28,10 @@ ACTIVITY_ID = 'a01gK00000Jw4wMQAR'
 
 _LAST_PDF_PATH = None
 
-
+NUM_DICT = {
+    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7,
+    'eight': 8, 'nine': 9, 'ten': 10, 'eleven': 11, 'twelve': 12
+}
 # CORRECT PICKLIST MAPPING
 PICKLIST_MAPPING = {
     'PTO': 'PTO',      
@@ -294,7 +297,16 @@ def generate_bot_response(user_message):
 
     elif ("change" in lower_message or "set" in lower_message) and ("hours" in lower_message or "time" in lower_message):
         numbers = re.findall(r'\b\d+\b', lower_message)
-        hours = float(numbers[0]) if numbers else None
+        if not numbers:
+            # If no digit found, check for number words
+            for num_word, digit in NUM_DICT.items():
+                if num_word in lower_message:
+                    hours = float(digit)
+                    break
+            else:
+                hours = None
+        else:
+            hours = float(numbers[0])
         
         for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
             if day in lower_message:
@@ -313,7 +325,16 @@ def update_draft_from_chat(message):
     
     if ("change" in lower_message or "set" in lower_message) and ("hours" in lower_message or "time" in lower_message):
         numbers = re.findall(r'\b\d+\b', lower_message)
-        hours = float(numbers[0]) if numbers else None
+        if not numbers:
+            # If no digit found, check for number words
+            for num_word, digit in NUM_DICT.items():
+                if num_word in lower_message:
+                    hours = float(digit)
+                    break
+            else:
+                hours = None
+        else:
+            hours = float(numbers[0])
         
         for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
             if day in lower_message:
@@ -329,6 +350,7 @@ def update_draft_from_chat(message):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
