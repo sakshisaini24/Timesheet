@@ -58,17 +58,18 @@ def create_timesheet_pdf(submitted_data):
     pdf.ln(10)
     pdf.set_font("Arial", 'B', 16)
     if total_hours >= 40:
-        productivity_emoji = "🎉"
+        productivity_message = "Weekly Productivity: Excellent!"
     elif total_hours >= 32:
-        productivity_emoji = "😊"
+        productivity_message = "Weekly Productivity: Good!"
     else:
-        productivity_emoji = "🙃"
-    pdf.cell(200, 10, txt=f"Weekly Productivity: {total_hours} hours {productivity_emoji}", ln=1, align="C")
+        productivity_message = "Weekly Productivity: Can do better!."
+    pdf.cell(200, 10, txt=f"{productivity_message} ({total_hours} hours)", ln=1, align="C")
     
     # Save the PDF
     pdf_path = f"timesheet_summary_{datetime.date.today().isoformat()}.pdf"
     pdf.output(pdf_path)
     return pdf_path
+
 
 def send_timesheet_email(pdf_path, user_email):
     """Sends an email with the generated PDF attached using SendGrid."""
@@ -325,6 +326,7 @@ def update_draft_from_chat(message):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
