@@ -200,6 +200,8 @@ def submit_to_salesforce(submitted_data):
         user_id = user_info['records'][0]['Id']
         manager_id = user_info['records'][0]['ManagerId']
         user_email = user_info['records'][0]['Email']
+        # ADD THIS DEBUGGING PRINT STATEMENT
+        print(f"DEBUG: User Email Retrieved: {user_email}")
         
         if not manager_id:
             return {'status': 'error', 'message': 'User does not have a manager assigned in Salesforce.'}
@@ -323,6 +325,7 @@ def update_draft_from_chat(message):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
