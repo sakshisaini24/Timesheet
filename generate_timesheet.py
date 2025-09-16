@@ -11,6 +11,10 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from fpdf import FPDF
 from simple_salesforce import Salesforce
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail, Attachment
+import base64
+import mimetypes
 
 # Import the Salesforce connection function from your separate file
 from sf_connect import connect_to_salesforce
@@ -319,6 +323,7 @@ def update_draft_from_chat(message):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
