@@ -1,10 +1,9 @@
-from flask import Flask, jsonify, request
+import os
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 import generate_timesheet
 
 app = Flask(__name__)
-# The global CORS(app) is not working correctly for all requests.
-# Let's configure it explicitly for all endpoints.
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 @app.route('/generate_draft')
@@ -41,19 +40,14 @@ def chat():
     
     return jsonify({'response': bot_response})
 
-@app.route('/update_draft_from_chat', methods=['POST'])
-def update_draft_from_chat():
+@app.route('/update_draft', methods=['POST'])
+def update_draft():
     data = request.json
     message = data.get('message', '')
 
     response = generate_timesheet.update_draft_from_chat(message)
     
     return jsonify(response)
-
-
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
-
 
 @app.route('/download_pdf')
 def download_pdf():
@@ -66,3 +60,6 @@ def download_pdf():
         return send_file(pdf_path, as_attachment=True, download_name=os.path.basename(pdf_path))
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
