@@ -26,6 +26,9 @@ SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 # REPLACE THIS WITH A REAL RECORD ID FROM YOUR ORG
 ACTIVITY_ID = 'a01gK00000Jw4wMQAR'
 
+_LAST_PDF_PATH = None
+
+
 # CORRECT PICKLIST MAPPING
 PICKLIST_MAPPING = {
     'PTO': 'PTO',      
@@ -190,6 +193,7 @@ def generate_timesheet_draft():
 
 def submit_to_salesforce(submitted_data):
     sf = connect_to_salesforce()
+    global _LAST_PDF_PATH
     if not sf:
         return {'status': 'error', 'message': 'Salesforce connection failed.'}
 
@@ -246,7 +250,7 @@ def submit_to_salesforce(submitted_data):
         return {'status': 'error', 'message': f"Failed to submit for approval: {e}"}
 
     pdf_path = create_timesheet_pdf(submitted_data)
-    send_timesheet_email(pdf_path, user_email)
+    _LAST_PDF_PATH = pdf_path
 
     return {'status': 'success', 'results': {'message': 'Timesheet submitted for approval.', 'ids': created_ids}}
 
@@ -325,6 +329,7 @@ def update_draft_from_chat(message):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
