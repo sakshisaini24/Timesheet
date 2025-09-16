@@ -40,7 +40,7 @@ def chat():
     
     return jsonify({'response': bot_response})
 
-@app.route('/update_draft', methods=['POST'])
+@app.route('/update_draft_from_chat', methods=['POST'])
 def update_draft():
     data = request.json
     message = data.get('message', '')
@@ -63,3 +63,4 @@ def download_pdf():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
