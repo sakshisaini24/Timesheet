@@ -2,24 +2,30 @@ import datetime
 import os.path
 import json
 import re
+import base64
+import mimetypes
+
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
+
 from fpdf import FPDF
 from simple_salesforce import Salesforce
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Attachment
-import base64
-import mimetypes
 
 # Import the Salesforce connection function from your separate file
 from sf_connect import connect_to_salesforce
 
-# Define the scopes needed for the Google Calendar API
+
+# -----------------------------
+# Constants
+# -----------------------------
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 
 # Hardcoded Salesforce Activity ID for the prototype
@@ -27,30 +33,34 @@ SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 ACTIVITY_ID = 'a01gK00000Jw4wMQAR'
 
 _LAST_PDF_PATH = None
+_TIMESHEET_DRAFT = None
 
 NUM_DICT = {
-    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7,
-    'eight': 8, 'nine': 9, 'ten': 10, 'eleven': 11, 'twelve': 12
+    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6,
+    'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, 'eleven': 11, 'twelve': 12
 }
-# CORRECT PICKLIST MAPPING
+
+# Correct picklist mapping
 PICKLIST_MAPPING = {
-    'PTO': 'PTO',      
+    'PTO': 'PTO',
     'Meetings': 'Business Day - Morning Shift - Standard Time',
     'Misc': 'Business Day - Morning Shift - Standard Time'
 }
 
-_TIMESHEET_DRAFT = None
 
+# -----------------------------
+# PDF Generation
+# -----------------------------
 def create_timesheet_pdf(submitted_data):
     """Generates a PDF of the timesheet and returns the file path."""
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
-    
+
     # Header
     pdf.cell(200, 10, txt="Timesheet Summary for the Week", ln=1, align="C")
     pdf.ln(5)
-    
+
     # Timesheet data
     total_hours = 0
     for day, hours_data in submitted_data.items():
@@ -59,7 +69,7 @@ def create_timesheet_pdf(submitted_data):
         pdf.cell(200, 10, txt=f"{day} - {daily_hours} hours", ln=1)
         for activity, hours in hours_data['data'].items():
             pdf.cell(200, 10, txt=f"  - {activity}: {hours} hours", ln=1)
-    
+
     # Productivity meter
     pdf.ln(10)
     pdf.set_font("Arial", 'B', 16)
@@ -70,13 +80,16 @@ def create_timesheet_pdf(submitted_data):
     else:
         productivity_message = "Weekly Productivity: Can do better!."
     pdf.cell(200, 10, txt=f"{productivity_message} ({total_hours} hours)", ln=1, align="C")
-    
+
     # Save the PDF
     pdf_path = f"timesheet_summary_{datetime.date.today().isoformat()}.pdf"
     pdf.output(pdf_path)
     return pdf_path
 
 
+# -----------------------------
+# Email Sending
+# -----------------------------
 def send_timesheet_email(pdf_path, user_email):
     """Sends an email with the generated PDF attached using SendGrid."""
     try:
@@ -116,11 +129,14 @@ def send_timesheet_email(pdf_path, user_email):
         return False
 
 
+# -----------------------------
+# Google Calendar
+# -----------------------------
 def get_calendar_service():
     creds = None
     credentials_json = os.environ.get('GOOGLE_CREDENTIALS_JSON')
     token_json = os.environ.get('GOOGLE_TOKEN_JSON')
-    
+
     if token_json:
         creds = Credentials.from_authorized_user_info(json.loads(token_json), SCOPES)
     else:
@@ -133,10 +149,15 @@ def get_calendar_service():
         else:
             print("Error: Invalid or expired Google Calendar token. Cannot re-authenticate on Render.")
             return None
-    
+
     return build('calendar', 'v3', credentials=creds)
 
-    def generate_timesheet_draft():
+
+# -----------------------------
+# Timesheet Draft Generation
+# -----------------------------
+def generate_timesheet_draft():
+    """Generates a draft timesheet based on Google Calendar events."""
     global _TIMESHEET_DRAFT
     if _TIMESHEET_DRAFT is not None:
         return _TIMESHEET_DRAFT
@@ -161,11 +182,12 @@ def get_calendar_service():
             orderBy='startTime'
         ).execute()
         events = events_result.get('items', [])
+
     except Exception as e:
         print(f"Error fetching calendar events: {e}")
         return {'status': 'error', 'message': f'Failed to fetch calendar events: {e}'}
 
-    # ✅ Initialize timesheet dictionary for Mon–Fri
+    # Initialize timesheet dictionary for Mon–Fri
     timesheet = {}
     for i in range(5):
         day = start_of_week + datetime.timedelta(days=i)
@@ -184,8 +206,12 @@ def get_calendar_service():
             continue
 
         if 'dateTime' in event['start'] and 'dateTime' in event['end']:
-            start_date = datetime.datetime.fromisoformat(event['start']['dateTime'].replace('Z', '+00:00'))
-            end_date = datetime.datetime.fromisoformat(event['end']['dateTime'].replace('Z', '+00:00'))
+            start_date = datetime.datetime.fromisoformat(
+                event['start']['dateTime'].replace('Z', '+00:00')
+            )
+            end_date = datetime.datetime.fromisoformat(
+                event['end']['dateTime'].replace('Z', '+00:00')
+            )
             duration_minutes = (end_date - start_date).total_seconds() / 60
             hours = round(duration_minutes / 60, 2)
 
@@ -203,21 +229,28 @@ def get_calendar_service():
     _TIMESHEET_DRAFT = timesheet
     return _TIMESHEET_DRAFT
 
+
+# -----------------------------
+# Salesforce Submission
+# -----------------------------
 def submit_to_salesforce(submitted_data):
+    """Submits timesheet data to Salesforce and triggers approval workflow."""
     sf = connect_to_salesforce()
     global _LAST_PDF_PATH
     if not sf:
         return {'status': 'error', 'message': 'Salesforce connection failed.'}
 
     try:
-        user_info = sf.query(f"SELECT Id, ManagerId, Email FROM User WHERE Username = 'sakshi.saini427@agentforce.com'")
+        user_info = sf.query(
+            "SELECT Id, ManagerId, Email FROM User WHERE Username = 'sakshi.saini427@agentforce.com'"
+        )
         if not user_info['records']:
             return {'status': 'error', 'message': 'User not found in Salesforce.'}
-        
+
         user_id = user_info['records'][0]['Id']
         manager_id = user_info['records'][0]['ManagerId']
         user_email = user_info['records'][0]['Email']
-        
+
         if not manager_id:
             return {'status': 'error', 'message': 'User does not have a manager assigned in Salesforce.'}
 
@@ -236,7 +269,7 @@ def submit_to_salesforce(submitted_data):
                     'Hours__c': hours
                 }
                 records_to_create.append(record)
-    
+
     created_ids = []
     for record in records_to_create:
         try:
@@ -250,14 +283,14 @@ def submit_to_salesforce(submitted_data):
         for record_id in created_ids:
             approval_requests.append({
                 "contextId": record_id,
-                "nextApproverIds": [manager_id], 
+                "nextApproverIds": [manager_id],
                 "comments": "Timesheet submitted automatically via Agentforce.",
                 "actionType": "Submit"
             })
-        
+
         data_payload = {"requests": approval_requests}
-        response = sf.restful('process/approvals/', method='POST', data=json.dumps(data_payload))
-        
+        sf.restful('process/approvals/', method='POST', data=json.dumps(data_payload))
+
     except Exception as e:
         return {'status': 'error', 'message': f"Failed to submit for approval: {e}"}
 
@@ -267,6 +300,9 @@ def submit_to_salesforce(submitted_data):
     return {'status': 'success', 'results': {'message': 'Timesheet submitted for approval.', 'ids': created_ids}}
 
 
+# -----------------------------
+# Draft Updates
+# -----------------------------
 def update_timesheet_draft(day, new_hours):
     global _TIMESHEET_DRAFT
     if _TIMESHEET_DRAFT and day in _TIMESHEET_DRAFT:
@@ -274,8 +310,10 @@ def update_timesheet_draft(day, new_hours):
         _TIMESHEET_DRAFT[day]['data']['Meetings'] = 0
         return True
     return False
-    
+
+
 def generate_bot_response(user_message):
+    """Generates a natural language response for timesheet queries."""
     global _TIMESHEET_DRAFT
     lower_message = user_message.lower()
 
@@ -300,7 +338,7 @@ def generate_bot_response(user_message):
             else:
                 summary += f"- {day}: Meetings: {day_data.get('Meetings', 0)} hrs, Misc: {day_data.get('Misc', 0)} hrs\n"
         return summary
-    
+
     elif "hello" in lower_message or "hi" in lower_message:
         return "Hello! I am your timesheet assistant. How can I help you with your timesheet draft?"
 
@@ -316,7 +354,7 @@ def generate_bot_response(user_message):
                 hours = None
         else:
             hours = float(numbers[0])
-        
+
         for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
             if day in lower_message:
                 if hours is not None:
@@ -329,9 +367,11 @@ def generate_bot_response(user_message):
 
     return "I can help with questions about your timesheet. Try asking me about your hours on a specific day."
 
+
 def update_draft_from_chat(message):
+    """Updates draft hours from chatbot input."""
     lower_message = message.lower()
-    
+
     if ("change" in lower_message or "set" in lower_message) and ("hours" in lower_message or "time" in lower_message):
         numbers = re.findall(r'\b\d+\b', lower_message)
         if not numbers:
@@ -344,27 +384,37 @@ def update_draft_from_chat(message):
                 hours = None
         else:
             hours = float(numbers[0])
-        
+
         for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
             if day in lower_message:
                 if hours is not None:
                     if update_timesheet_draft(day.capitalize(), hours):
-                        return {'status': 'success', 'response': f"Okay, I have set {hours} hours for {day.capitalize()}.", 'draft': _TIMESHEET_DRAFT}
+                        return {
+                            'status': 'success',
+                            'response': f"Okay, I have set {hours} hours for {day.capitalize()}.",
+                            'draft': _TIMESHEET_DRAFT
+                        }
                     else:
                         return {'status': 'error', 'response': "I could not update the timesheet. Please try again."}
 
     return {'status': 'error', 'response': "I can only update hours for a specific day."}
 
-# In generate_timesheet.py, add this function at the bottom
+
+# -----------------------------
+# FAQs from Salesforce
+# -----------------------------
 def get_faqs_from_salesforce():
     """Queries Salesforce for a list of Knowledge Articles and returns FAQs."""
     sf = connect_to_salesforce()
     if not sf:
         return []
-    
+
     try:
-        # This is a sample query. You will need to adjust the fields and object name
-        faqs_result = sf.query("SELECT Id, Title, KnowledgeArticleId FROM KnowledgeArticle WHERE PublishStatus = 'Draft' LIMIT 5")
+        # This is a sample query. Adjust fields/object name as needed
+        faqs_result = sf.query(
+            "SELECT Id, Title, KnowledgeArticleId "
+            "FROM KnowledgeArticle WHERE PublishStatus = 'Draft' LIMIT 5"
+        )
         faqs = []
         for record in faqs_result.get('records', []):
             faqs.append({
@@ -372,18 +422,15 @@ def get_faqs_from_salesforce():
                 "link": f"https://your-salesforce-org.lightning.force.com/lightning/r/KnowledgeArticle/{record['KnowledgeArticleId']}/view"
             })
         return faqs
+
     except Exception as e:
         print(f"Error fetching FAQs from Salesforce: {e}")
         return []
 
 
+# -----------------------------
+# Main Entry
+# -----------------------------
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
-
-
-
-
-
-
-
