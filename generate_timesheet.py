@@ -355,7 +355,7 @@ def get_faqs_from_salesforce():
     
     try:
         # This is a sample query. You will need to adjust the fields and object name
-        faqs_result = sf.query("SELECT Id, Title, KnowledgeArticleId FROM KnowledgeArticle WHERE PublishStatus = 'Online' LIMIT 5")
+        faqs_result = sf.query("SELECT Id, Title, KnowledgeArticleId FROM KnowledgeArticle WHERE PublishStatus = 'Draft' LIMIT 5")
         faqs = []
         for record in faqs_result.get('records', []):
             faqs.append({
@@ -371,4 +371,5 @@ def get_faqs_from_salesforce():
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
