@@ -203,35 +203,6 @@ def get_calendar_service():
     _TIMESHEET_DRAFT = timesheet
     return _TIMESHEET_DRAFT
 
-        
-    for event in events:
-        if 'OOO' in event.get('summary', '').upper() or 'OUT OF OFFICE' in event.get('summary', '').upper():
-            start_date_str = event['start'].get('date')
-            if start_date_str:
-                start_date = datetime.date.fromisoformat(start_date_str)
-                timesheet[start_date.strftime('%A')]['data']['PTO'] = 8
-            continue
-            
-        if 'dateTime' in event['start'] and 'dateTime' in event['end']:
-            start_date = datetime.datetime.fromisoformat(event['start'].get('dateTime').replace('Z', '+00:00'))
-            end_date = datetime.datetime.fromisoformat(event['end'].get('dateTime').replace('Z', '+00:00'))
-            duration_minutes = (end_date - start_date).total_seconds() / 60
-            hours = round(duration_minutes / 60, 2)
-            
-            day_of_week = start_date.strftime('%A')
-            
-            if 'PTO' not in timesheet[day_of_week]['data']:
-                timesheet[day_of_week]['data']['Meetings'] += hours
-    
-    for day, data in timesheet.items():
-        if 'PTO' not in data['data']:
-            misc_hours = 8 - data['data']['Meetings']
-            if misc_hours > 0:
-                data['data']['Misc'] = round(misc_hours, 2)
-                
-    _TIMESHEET_DRAFT = timesheet
-    return _TIMESHEET_DRAFT
-
 def submit_to_salesforce(submitted_data):
     sf = connect_to_salesforce()
     global _LAST_PDF_PATH
@@ -409,6 +380,7 @@ def get_faqs_from_salesforce():
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
