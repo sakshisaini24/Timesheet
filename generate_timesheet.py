@@ -136,38 +136,73 @@ def get_calendar_service():
     
     return build('calendar', 'v3', credentials=creds)
 
-def generate_timesheet_draft():
+    def generate_timesheet_draft():
     global _TIMESHEET_DRAFT
     if _TIMESHEET_DRAFT is not None:
         return _TIMESHEET_DRAFT
-    
+
     service = get_calendar_service()
     if service is None:
         return {'status': 'error', 'message': 'Google Calendar API token is not valid.'}
-    
+
     try:
         today = datetime.date.today()
         start_of_week = today - datetime.timedelta(days=today.weekday())
         end_of_week = start_of_week + datetime.timedelta(days=4)
-        
+
         timeMin = datetime.datetime.combine(start_of_week, datetime.time.min).isoformat() + 'Z'
         timeMax = datetime.datetime.combine(end_of_week, datetime.time.max).isoformat() + 'Z'
 
-        events_result = service.events().list(calendarId='primary', timeMin=timeMin,
-                                              timeMax=timeMax, singleEvents=True,
-                                              orderBy='startTime').execute()
+        events_result = service.events().list(
+            calendarId='primary',
+            timeMin=timeMin,
+            timeMax=timeMax,
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
         events = events_result.get('items', [])
     except Exception as e:
         print(f"Error fetching calendar events: {e}")
         return {'status': 'error', 'message': f'Failed to fetch calendar events: {e}'}
 
-     timesheet = {}
-    for i in range(5):  # Monday–Friday
-        day = (start_of_week + datetime.timedelta(days=i))
+    # ✅ Initialize timesheet dictionary for Mon–Fri
+    timesheet = {}
+    for i in range(5):
+        day = start_of_week + datetime.timedelta(days=i)
         timesheet[day.strftime('%A')] = {
             'date': day.isoformat(),
             'data': {'Meetings': 0, 'Misc': 0}
         }
+
+    # Process events
+    for event in events:
+        if 'OOO' in event.get('summary', '').upper() or 'OUT OF OFFICE' in event.get('summary', '').upper():
+            start_date_str = event['start'].get('date')
+            if start_date_str:
+                start_date = datetime.date.fromisoformat(start_date_str)
+                timesheet[start_date.strftime('%A')]['data']['PTO'] = 8
+            continue
+
+        if 'dateTime' in event['start'] and 'dateTime' in event['end']:
+            start_date = datetime.datetime.fromisoformat(event['start']['dateTime'].replace('Z', '+00:00'))
+            end_date = datetime.datetime.fromisoformat(event['end']['dateTime'].replace('Z', '+00:00'))
+            duration_minutes = (end_date - start_date).total_seconds() / 60
+            hours = round(duration_minutes / 60, 2)
+
+            day_of_week = start_date.strftime('%A')
+            if 'PTO' not in timesheet[day_of_week]['data']:
+                timesheet[day_of_week]['data']['Meetings'] += hours
+
+    # Fill Misc hours
+    for day, data in timesheet.items():
+        if 'PTO' not in data['data']:
+            misc_hours = 8 - data['data']['Meetings']
+            if misc_hours > 0:
+                data['data']['Misc'] = round(misc_hours, 2)
+
+    _TIMESHEET_DRAFT = timesheet
+    return _TIMESHEET_DRAFT
+
         
     for event in events:
         if 'OOO' in event.get('summary', '').upper() or 'OUT OF OFFICE' in event.get('summary', '').upper():
@@ -374,6 +409,7 @@ def get_faqs_from_salesforce():
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
