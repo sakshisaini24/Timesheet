@@ -161,13 +161,6 @@ def generate_timesheet_draft():
         print(f"Error fetching calendar events: {e}")
         return {'status': 'error', 'message': f'Failed to fetch calendar events: {e}'}
     
-    timesheet_list = []
-    days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-    for day_name in days_of_week:
-        # NEW CODE: Find the date for the day
-        day_date = start_of_week + datetime.timedelta(days=days_of_week.index(day_name))
-        timesheet_list.append({'day': day_name, 'date': day_date.isoformat(), 'data': {'Meetings': 0, 'Misc': 0}})
-    
         
     for event in events:
         if 'OOO' in event.get('summary', '').upper() or 'OUT OF OFFICE' in event.get('summary', '').upper():
@@ -374,6 +367,7 @@ def get_faqs_from_salesforce():
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
