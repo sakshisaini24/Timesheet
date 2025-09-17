@@ -346,22 +346,29 @@ def update_draft_from_chat(message):
 
     return {'status': 'error', 'response': "I can only update hours for a specific day."}
 
+# In generate_timesheet.py, add this function at the bottom
+def get_faqs_from_salesforce():
+    """Queries Salesforce for a list of Knowledge Articles and returns FAQs."""
+    sf = connect_to_salesforce()
+    if not sf:
+        return []
+    
+    try:
+        # This is a sample query. You will need to adjust the fields and object name
+        faqs_result = sf.query("SELECT Id, Title, KnowledgeArticleId FROM KnowledgeArticle WHERE PublishStatus = 'Online' LIMIT 5")
+        faqs = []
+        for record in faqs_result.get('records', []):
+            faqs.append({
+                "question": record['Title'],
+                "link": f"https://your-salesforce-org.lightning.force.com/lightning/r/KnowledgeArticle/{record['KnowledgeArticleId']}/view"
+            })
+        return faqs
+    except Exception as e:
+        print(f"Error fetching FAQs from Salesforce: {e}")
+        return []
+
 
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
