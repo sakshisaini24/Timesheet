@@ -61,6 +61,13 @@ def download_pdf():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# In app.py
+@app.route('/faqs')
+def get_faqs():
+    faqs = generate_timesheet.get_faqs_from_salesforce()
+    return jsonify({'faqs': faqs})
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
