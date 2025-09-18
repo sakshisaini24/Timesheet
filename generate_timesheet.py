@@ -416,7 +416,7 @@ def get_faqs_from_salesforce():
         for record in faqs_result.get('records', []):
             faqs.append({
                 "question": record['Title'],
-                "link": f"https://orgfarm-2bc7acb5c3-dev-ed.develop.lightning.force.com/lightning/r/KnowledgeArticle/{record['KnowledgeArticleId']}/view"
+                "link": f"https://orgfarm-2bc7acb5c3-dev-ed.develop.lightning.force.com/lightning/r/Knowledge__kav/{record['KnowledgeArticleId']}/view"
             })
         return faqs
     except Exception as e:
@@ -430,6 +430,7 @@ def get_faqs_from_salesforce():
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
