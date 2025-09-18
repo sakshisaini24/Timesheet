@@ -259,17 +259,20 @@ def submit_to_salesforce(submitted_data):
 
     records_to_create = []
     for day, hours_data in submitted_data.items():
-        for activity, hours in hours_data['data'].items():
-            total_hours = sum(hours_data['data'].values())
-            if total_hours > 0:
-                record = {
-                    'Activity__c': ACTIVITY_ID,
-                    'Date__c': hours_data['date'],
-                    'Status__c': 'Submitted',
-                    'Time_Type__c': PICKLIST_MAPPING.get(activity, 'Uncategorized'),
-                    'Hours__c': total_hours
-                }
-                records_to_create.append(record)
+        total_hours = hours_data['data'].get('Meetings', 0) + hours_data['data'].get('Misc', 0)
+        
+        if 'PTO' in hours_data['data']:
+            total_hours = 8 # A full day is 8 hours
+            
+        if total_hours > 0:
+            record = {
+                'Activity__c': ACTIVITY_ID,
+                'Date__c': hours_data['date'],
+                'Status__c': 'Submitted',
+                'Time_Type__c': PICKLIST_MAPPING.get('Misc', 'Uncategorized'), # Use a single, generic type
+                'Hours__c': total_hours
+            }
+            records_to_create.append(record)
 
     created_ids = []
     for record in records_to_create:
@@ -431,6 +434,7 @@ def get_faqs_from_salesforce():
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
