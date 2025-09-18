@@ -411,7 +411,7 @@ def get_faqs_from_salesforce():
     
     try:
         # Corrected SOQL query with the correct API name for the Title field
-        faqs_result = sf.query("SELECT Id, Title, KnowledgeArticleId FROM KnowledgeArticle WHERE PublishStatus = 'Online' LIMIT 5")
+        faqs_result = sf.query("SELECT Id, Title, KnowledgeArticleId FROM Knowledge__kav WHERE PublishStatus = 'Online' LIMIT 5")
         faqs = []
         for record in faqs_result.get('records', []):
             faqs.append({
@@ -430,5 +430,6 @@ def get_faqs_from_salesforce():
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
