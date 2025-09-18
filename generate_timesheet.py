@@ -408,21 +408,17 @@ def get_faqs_from_salesforce():
     sf = connect_to_salesforce()
     if not sf:
         return []
-
+    
     try:
-        # This is a sample query. Adjust fields/object name as needed
-        faqs_result = sf.query(
-            "SELECT Id, Title, KnowledgeArticleId "
-            "FROM KnowledgeArticle WHERE PublishStatus = 'Online' LIMIT 5"
-        )
+        # Corrected SOQL query with the correct API name for the Title field
+        faqs_result = sf.query("SELECT Id, Title, KnowledgeArticleId FROM KnowledgeArticle WHERE PublishStatus = 'Online' LIMIT 5")
         faqs = []
         for record in faqs_result.get('records', []):
             faqs.append({
                 "question": record['Title'],
-                "link": f"https://orgfarm-2bc7acb5c3-dev-ed.develop.lightning.force.com//lightning/r/KnowledgeArticle/{record['KnowledgeArticleId']}/view"
+                "link": f"https://orgfarm-2bc7acb5c3-dev-ed.develop.lightning.force.com/lightning/r/KnowledgeArticle/{record['KnowledgeArticleId']}/view"
             })
         return faqs
-
     except Exception as e:
         print(f"Error fetching FAQs from Salesforce: {e}")
         return []
@@ -434,4 +430,5 @@ def get_faqs_from_salesforce():
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
