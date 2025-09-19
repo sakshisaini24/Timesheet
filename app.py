@@ -52,7 +52,7 @@ def update_draft():
 @app.route('/download_pdf')
 def download_pdf():
     try:
-        # A simple way to get the file path for a prototype
+        
         pdf_path = generate_timesheet._LAST_PDF_PATH
         if not pdf_path or not os.path.exists(pdf_path):
             return jsonify({"status": "error", "message": "PDF not found."}), 404
@@ -61,13 +61,27 @@ def download_pdf():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# In app.py
+
 @app.route('/faqs')
 def get_faqs():
     faqs = generate_timesheet.get_faqs_from_salesforce()
     return jsonify({'faqs': faqs})
 
+
+@app.route('/recall_to_draft', methods=['POST'])
+def recall_to_draft():
+    data = request.json
+    record_ids = data.get('ids', [])
+    
+    if not record_ids:
+        return jsonify({'status': 'error', 'message': 'No record IDs provided.'}), 400
+
+    result = generate_timesheet.delete_timesheet_records(record_ids)
+    
+    return jsonify(result)
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
