@@ -436,12 +436,30 @@ def get_faqs_from_salesforce():
         return []
 
 
+  # In generate_timesheet.py, add this new function at the bottom
+def delete_timesheet_records(record_ids):
+    """Deletes timesheet records from Salesforce."""
+    sf = connect_to_salesforce()
+    if not sf:
+        return {'status': 'error', 'message': 'Salesforce connection failed.'}
+    
+    try:
+        # Simple-salesforce bulk delete method
+        results = sf.bulk.Timesheet__c.delete(record_ids)
+        
+        # Log the deletion results
+        print(f"DEBUG: Deletion results: {results}")
+
+        return {'status': 'success', 'message': 'Records deleted successfully.'}
+    except Exception as e:
+        return {'status': 'error', 'message': f"Error deleting records: {e}"}
 # -----------------------------
 # Main Entry
 # -----------------------------
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
