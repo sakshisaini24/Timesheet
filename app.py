@@ -4,7 +4,14 @@ from flask_cors import CORS
 import generate_timesheet
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {
+    "origins": [
+        "https://orgfarm-2bc7acb5c3-dev-ed.develop.vf.force.com",
+        "https://orgfarm-2bc7acb5c3-dev-ed--c.develop.vf.force.com"
+    ],
+    "methods": ["GET", "POST", "OPTIONS"],
+    "allow_headers": ["Content-Type", "Authorization"]
+}})
 
 @app.route('/generate_draft')
 def generate_draft():
@@ -82,6 +89,7 @@ def recall_to_draft():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
 
