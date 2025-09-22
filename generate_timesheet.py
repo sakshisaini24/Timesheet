@@ -133,25 +133,38 @@ def send_timesheet_email(pdf_path, user_email):
 # Google Calendar
 # -----------------------------
 def get_calendar_service():
-    creds = None
+    """
+    Returns an authorized Google Calendar service instance.
+    Automatically refreshes access token using the refresh_token.
+    Requires environment variables:
+        - GOOGLE_CREDENTIALS_JSON (client secret JSON)
+        - GOOGLE_TOKEN_JSON (token JSON with refresh_token)
+    """
+
     credentials_json = os.environ.get('GOOGLE_CREDENTIALS_JSON')
-    token_json = os.environ.get('GOOGLE_TOKEN_JSON')
+    token_json_str = os.environ.get('GOOGLE_TOKEN_JSON')
 
-    if token_json:
-        creds = Credentials.from_authorized_user_info(json.loads(token_json), SCOPES)
-    else:
-        print("Error: Google Calendar token not found in environment variables.")
-        return None
+    if not credentials_json or not token_json_str:
+        raise Exception("Missing GOOGLE_CREDENTIALS_JSON or GOOGLE_TOKEN_JSON environment variable")
 
+    # Load token
+    token_data = json.loads(token_json_str)
+    creds = Credentials.from_authorized_user_info(token_data, SCOPES)
+
+    # Refresh token if expired
     if not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+        if creds.expired and creds.refresh_token:
+            try:
+                creds.refresh(Request())
+                print("Google access token refreshed successfully")
+            except Exception as e:
+                raise Exception(f"Failed to refresh token: {e}")
         else:
-            print("Error: Invalid or expired Google Calendar token. Cannot re-authenticate on Render.")
-            return None
+            raise Exception("Invalid token: no refresh_token available or token invalid")
 
-    return build('calendar', 'v3', credentials=creds)
-
+    # Build service
+    service = build('calendar', 'v3', credentials=creds)
+    return service
 
 # -----------------------------
 # Timesheet Draft Generation
@@ -459,6 +472,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
