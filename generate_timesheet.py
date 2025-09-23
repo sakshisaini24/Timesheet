@@ -387,20 +387,36 @@ def generate_bot_response(user_message):
     except Exception as e:
         return f"Error generating response: {e}"
 
+
 def update_draft_from_chat(user_message):
-    """Simple rule-based draft update"""
+    """
+    Updates the draft from chat, converting number words to digits.
+    """
     global _TIMESHEET_DRAFT
     if not _TIMESHEET_DRAFT:
         return {"status": "error", "response": "No draft found."}
-    m = re.search(r"(Monday|Tuesday|Wednesday|Thursday|Friday).+?(\d+)", user_message, re.I)
+
+    processed_message = user_message.lower()
+    for word, number in NUM_DICT.items():
+        if word in processed_message:
+            processed_message = processed_message.replace(word, str(number))
+    
+    m = re.search(r"(monday|tuesday|wednesday|thursday|friday).+?(\d+\.?\d*|\d+)", processed_message, re.I)
+
     if m:
         day = m.group(1).capitalize()
         hours = float(m.group(2))
         if day in _TIMESHEET_DRAFT:
+            # Set total hours for the day, assigning all to Misc
             _TIMESHEET_DRAFT[day]['data']['Misc'] = hours
-            _TIMESHEET_DRAFT[day]['data']['Meetings'] = 0
-            return {"status": "success", "response": f"Updated {day} with {hours} hours.", "draft": _TIMESHEET_DRAFT}
-    return {"status": "error", "response": "Could not parse message."}
+            _TIMESHEET_DRAFT[day]['data']['Meetings'] = 0 # Zero out the other category
+            return {
+                "status": "success",
+                "response": f"Updated {day} with a total of {hours} hours.",
+                "draft": _TIMESHEET_DRAFT
+            }
+
+    return {"status": "error", "response": "I was unable to update the timesheet with that information. Please try again."}
 
 
 # -----------------------------
@@ -450,6 +466,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
