@@ -7,3 +7,4 @@ google-auth-httplib2
 fpdf2
 gunicorn
 sendgrid
+openai
