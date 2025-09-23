@@ -8,6 +8,8 @@ fpdf2
 gunicorn
 sendgrid
 openai>=1.0.0
+google-genai
+
 
 
 
