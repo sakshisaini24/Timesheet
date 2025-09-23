@@ -89,9 +89,19 @@ def recall_to_draft():
     return jsonify(result)
 
 
+@app.route('/get_insight', methods=['POST'])
+def get_insight():
+    # The UI will send the final confirmed draft in the request body
+    final_draft = request.json 
+    if not final_draft:
+        return jsonify({'status': 'error', 'message': 'No data received'}), 400
+    
+    insight_result = generate_timesheet.generate_productivity_insights(final_draft)
+    return jsonify(insight_result)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
 
