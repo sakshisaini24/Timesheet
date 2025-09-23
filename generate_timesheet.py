@@ -363,40 +363,73 @@ Respond concisely and helpfully about hours, tasks, PTO, or provide guidance.
     except Exception as e:
         return f"Error generating AI response: {e}"
 
-
-
-
+#-------------------------------
+#Generate Bot response on update
+#------------------------------
 
 def update_draft_from_chat(message):
-    """Updates draft hours from chatbot input."""
-    lower_message = message.lower()
+    """Updates draft hours intelligently using OpenAI LLM."""
+    global _TIMESHEET_DRAFT
+    if not _TIMESHEET_DRAFT:
+        return {'status': 'error', 'response': 'No timesheet draft found.'}
 
-    if ("change" in lower_message or "set" in lower_message) and ("hours" in lower_message or "time" in lower_message):
-        numbers = re.findall(r'\b\d+\b', lower_message)
-        if not numbers:
-            # If no digit found, check for number words
-            for num_word, digit in NUM_DICT.items():
-                if num_word in lower_message:
-                    hours = float(digit)
-                    break
-            else:
-                hours = None
-        else:
-            hours = float(numbers[0])
+    # Prepare prompt for the LLM
+    prompt = f"""
+You are a helpful timesheet assistant. 
+The current timesheet draft is: {_TIMESHEET_DRAFT}
 
-        for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
-            if day in lower_message:
-                if hours is not None:
-                    if update_timesheet_draft(day.capitalize(), hours):
-                        return {
-                            'status': 'success',
-                            'response': f"Okay, I have set {hours} hours for {day.capitalize()}.",
-                            'draft': _TIMESHEET_DRAFT
-                        }
-                    else:
-                        return {'status': 'error', 'response': "I could not update the timesheet. Please try again."}
+The user says: {message}
 
-    return {'status': 'error', 'response': "I can only update hours for a specific day."}
+Instructions:
+1. Identify which day(s) the user wants to update.
+2. Identify which activity (Meetings or Misc) should be updated.
+3. Identify the number of hours to set.
+4. Respond ONLY in JSON format like this:
+{{
+  "status": "success",
+  "updates": [
+    {{"day": "Monday", "activity": "Misc", "hours": 4}},
+    ...
+  ]
+}}
+If you cannot determine the update, return:
+{{ "status": "error", "updates": [] }}
+"""
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "system", "content": prompt}],
+            temperature=0
+        )
+
+        llm_output = response.choices[0].message.content.strip()
+
+        # --- Sanitize JSON output ---
+        import re
+        match = re.search(r'\{.*\}', llm_output, re.DOTALL)
+        if not match:
+            return {'status': 'error', 'response': 'LLM output not parseable.'}
+        import json
+        data = json.loads(match.group())
+
+        if data.get('status') == 'success' and data.get('updates'):
+            for upd in data['updates']:
+                # --- Normalize day name ---
+                day = upd.get('day', '').capitalize()
+                activity = upd.get('activity', 'Misc')
+                hours = upd.get('hours')
+                if day in _TIMESHEET_DRAFT and hours is not None:
+                    _TIMESHEET_DRAFT[day]['data'][activity] = float(hours)
+                    # If updating Misc, reset Meetings to fill 8 hours
+                    if activity == 'Misc':
+                        _TIMESHEET_DRAFT[day]['data']['Meetings'] = round(8 - float(hours), 2)
+            return {'status': 'success', 'response': 'Timesheet updated.', 'draft': _TIMESHEET_DRAFT}
+
+        return {'status': 'error', 'response': 'Could not interpret your request.'}
+
+    except Exception as e:
+        return {'status': 'error', 'response': f"Error: {e}"}
 
 
 # -----------------------------
@@ -446,6 +479,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
