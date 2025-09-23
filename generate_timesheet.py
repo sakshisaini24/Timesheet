@@ -445,76 +445,90 @@ def update_draft_from_chat(user_message):
     return {"status": "error", "response": "I was unable to update the timesheet with that information. Please try again."}
 
 
-# Keep this function, as it will be called by our new logic
+# In generate_timesheet.py
+
+# This is the global variable that holds your timesheet data
+_TIMESHEET_DRAFT = None 
+
+# --- STEP 1: ADD THIS MISSING HELPER FUNCTION ---
+# This function contains the actual logic for changing the hours in the draft.
 def _update_draft_hours(day, hours, activity='Misc'):
-    """Helper function to actually modify the draft."""
+    """Helper function to safely modify the _TIMESHEET_DRAFT global variable."""
     global _TIMESHEET_DRAFT
-    if day in _TIMESHEET_DRAFT:
-        if activity == 'PTO':
-            _TIMESHEET_DRAFT[day]['data']['PTO'] = hours
-            _TIMESHEET_DRAFT[day]['data']['Misc'] = 0
-            _TIMESHEET_DRAFT[day]['data']['Meetings'] = 0
-        else: # For Misc, Project Work, etc.
-            _TIMESHEET_DRAFT[day]['data']['Misc'] = hours
-            _TIMESHEET_DRAFT[day]['data']['Meetings'] = 8 - hours if hours < 8 else 0
-            if 'PTO' in _TIMESHEET_DRAFT[day]['data']:
-                del _TIMESHEET_DRAFT[day]['data']['PTO']
-        return True
-    return False
+    day_capitalized = day.capitalize()
+
+    if _TIMESHEET_DRAFT and day_capitalized in _TIMESHEET_DRAFT:
+        # Clear existing hours for that day to avoid conflicts
+        _TIMESHEET_DRAFT[day_capitalized]['data'] = {'Meetings': 0, 'Misc': 0}
+        if 'PTO' in _TIMESHEET_DRAFT[day_capitalized]['data']:
+            del _TIMESHEET_DRAFT[day_capitalized]['data']['PTO']
+
+        # Set the new hours based on activity
+        if activity.upper() == 'PTO':
+            _TIMESHEET_DRAFT[day_capitalized]['data']['PTO'] = hours
+        else:
+            _TIMESHEET_DRAFT[day_capitalized]['data']['Misc'] = hours
+        
+        # Recalculate meetings if needed
+        total_hours = sum(_TIMESHEET_DRAFT[day_capitalized]['data'].values())
+        if total_hours < 8 and 'PTO' not in _TIMESHEET_DRAFT[day_capitalized]['data']:
+             # This part is optional: you can decide if you want to auto-fill the rest of the day
+             pass
+
+        return True # Indicate success
+    return False # Indicate failure (day not found)
 
 
-# THIS IS YOUR NEW, SMARTER CHAT FUNCTION
+# --- STEP 2: REPLACE YOUR OLD FUNCTION WITH THIS CORRECTED VERSION ---
+# This is the main function, now correctly calling the helper above.
 def process_chat_command(user_message):
     """
-    Processes advanced user commands.
-    1. Checks for simple keywords ("submit").
-    2. If none, asks the GenAI to parse complex commands.
+    Processes advanced user commands by checking for keywords or using GenAI to parse.
     """
     global _TIMESHEET_DRAFT
     message_lower = user_message.lower()
-    if 'submit' in message_lower or 'looks good' in message_lower or 'correct' in message_lower:
 
+    # (Code for the "Skip Ahead" command remains the same)
+    if 'submit' in message_lower or 'looks good' in message_lower or 'correct' in message_lower:
         return {'status': 'submitting', 'response': 'Great! Finalizing and submitting your timesheet now...', 'draft': _TIMESHEET_DRAFT}
 
     try:
-        # This prompt forces the AI to act as a parser and return ONLY JSON
         prompt = f"""
         Analyze the user's timesheet request: '{user_message}'.
         Extract the day of the week, the total hours, and the primary activity.
         The day must be one of: Monday, Tuesday, Wednesday, Thursday, Friday.
-        The hours must be a number.
+        The hours must be a number (convert words like 'six' to 6).
         The activity is what the user is describing (e.g., 'PTO', 'project work', 'meetings').
         Respond ONLY with a JSON object in the format {{"day": "...", "hours": ..., "activity": "..."}}.
         If you cannot determine all three values, respond with {{"error": "incomplete information"}}.
         """
         
-        # Using Gemini as an example
         model = genai.GenerativeModel('gemini-pro')
         response = model.generate_content(prompt)
         
-        # Clean up the response to make sure it's valid JSON
         json_response_text = response.text.strip().replace('`', '').replace('json', '')
         parsed_data = json.loads(json_response_text)
 
         if 'error' in parsed_data:
-            return {"status": "error", "response": "I'm sorry, I didn't quite understand. Could you please specify the day, hours, and activity?"}
+            return {"status": "error", "response": "I'm sorry, I didn't quite understand. Please specify the day and hours."}
 
         day = parsed_data.get('day')
         hours = parsed_data.get('hours')
         activity = parsed_data.get('activity', 'Misc')
 
         if day and hours is not None:
-            # We have structured data! Now update the draft.
-            if _update_draft_hours(day.capitalize(), float(hours), activity.upper()):
+            # THIS IS THE CRITICAL PART THAT NOW WORKS
+            # It successfully calls the helper function to update the draft
+            if _update_draft_hours(day, float(hours), activity):
                  return {"status": "success", "response": f"OK. I've updated {day} to {hours} hours of {activity}.", "draft": _TIMESHEET_DRAFT}
             else:
                 return {"status": "error", "response": f"I couldn't find {day} in the current draft."}
 
     except Exception as e:
-        print(f"AI parsing failed: {e}")
+        print(f"AI parsing or draft update failed: {e}")
         return {"status": "error", "response": "I had trouble processing that request. Please try rephrasing."}
     
-    return {"status": "error", "response": "I'm not sure how to handle that. Please try again."}
+    return {"status": "error", "response": "I was unable to update the timesheet with that information. Please try again."}
 #------------------------------
 
 # -----------------------------
@@ -564,6 +578,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
