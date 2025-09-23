@@ -555,12 +555,58 @@ def delete_timesheet_records(record_ids):
         return {'status': 'success', 'message': 'Records deleted successfully.'}
     except Exception as e:
         return {'status': 'error', 'message': f"Error deleting records: {e}"}
+
+# In generate_timesheet.py
+
+def generate_productivity_insights(timesheet_data):
+    """
+    Analyzes a completed timesheet and returns a productivity insight using GenAI.
+    """
+    try:
+        # Convert the timesheet data to a simple string for the prompt
+        summary_lines = []
+        total_hours = 0
+        meeting_hours = 0
+        for day, data in timesheet_data.items():
+            day_total = sum(data['data'].values())
+            total_hours += day_total
+            meeting_hours += data['data'].get('Meetings', 0)
+            summary_lines.append(f"- {day}: {day_total} hours")
+
+        timesheet_summary = "\n".join(summary_lines)
+
+        # This is the magic: a prompt that asks the AI to be a coach
+        prompt = f"""
+        You are a friendly and encouraging productivity coach.
+        Analyze the following weekly timesheet summary for an employee.
+        The total hours worked were {total_hours}.
+        The total hours in meetings were {meeting_hours}.
+        The daily breakdown is:
+        {timesheet_summary}
+
+        Based on this data, provide ONE concise, positive, and actionable insight for the user.
+        Frame it as a helpful observation. If meeting hours are high, suggest focus time.
+        If total hours are high, encourage rest. If meeting hours are low, praise their focus.
+        Start the response with a phrase like "Here's a quick insight on your week:".
+        Keep the entire response to under 40 words.
+        """
+
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        response = model.generate_content(prompt)
+        
+        return {"status": "success", "insight": response.text}
+
+    except Exception as e:
+        print(f"Could not generate insights: {e}")
+        # Don't return an error, just return an empty success so it doesn't break the flow
+        return {"status": "success", "insight": ""}
 # -----------------------------
 # Main Entry
 # -----------------------------
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
