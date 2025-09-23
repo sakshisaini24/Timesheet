@@ -440,108 +440,81 @@ def update_draft_from_chat(user_message):
                 "response": f"Set {day} as a full day of PTO.",
                 "draft": _TIMESHEET_DRAFT
             }
-    # --- END OF NEW LOGIC ---
 
     return {"status": "error", "response": "I was unable to update the timesheet with that information. Please try again."}
 
 
-# In generate_timesheet.py
 
-# In generate_timesheet.py
-
-_TIMESHEET_DRAFT = None 
-
-# --- STEP 1: REPLACE your old helper function with THIS SIMPLER VERSION ---
-def _update_draft_hours(day, hours):
+def _update_draft_hours(day, hours, activity='Misc'):
     """
-    Safely and directly sets the TOTAL hours for a given day.
-    It assigns all hours to 'Misc' and clears other categories.
+    Safely sets the total hours for a given day, correctly handling PTO.
     """
     global _TIMESHEET_DRAFT
     day_capitalized = day.capitalize()
 
     if _TIMESHEET_DRAFT and day_capitalized in _TIMESHEET_DRAFT:
-        # This is the fix: Wipe the slate clean for that day...
+        
         _TIMESHEET_DRAFT[day_capitalized]['data'] = {
             'Meetings': 0,
             'Misc': 0
         }
-        # ...and then set the new total under Misc.
-        _TIMESHEET_DRAFT[day_capitalized]['data']['Misc'] = float(hours)
         
-        # Remove PTO if it exists, as we are setting specific hours
-        if 'PTO' in _TIMESHEET_DRAFT[day_capitalized]['data']:
-            del _TIMESHEET_DRAFT[day_capitalized]['data']['PTO']
+        if activity.upper() == 'PTO':
+            _TIMESHEET_DRAFT[day_capitalized]['data']['PTO'] = float(hours)
+        else:
+            _TIMESHEET_DRAFT[day_capitalized]['data']['Misc'] = float(hours)
         
-        return True # Success
-    return False # Failure
+        return True 
+    return False 
 
-
-# --- STEP 2: USE THIS SLIGHTLY TWEAKED MAIN FUNCTION ---
-# The prompt is now more forceful to ensure the AI returns a number.
-# In generate_timesheet.py, replace the function with this one.
 
 def process_chat_command(user_message):
     """
-    Processes advanced user commands with extensive debugging print statements.
+    Processes advanced user commands, extracting day, hours, AND activity.
     """
-    print("\n--- NEW REQUEST ---")
-    print(f"1. RECEIVED MESSAGE: '{user_message}'")
-
     global _TIMESHEET_DRAFT
     message_lower = user_message.lower()
 
     if 'submit' in message_lower or 'looks good' in message_lower or 'correct' in message_lower:
-        print("2. DETECTED 'SUBMIT' KEYWORD. SKIPPING AI.")
         return {'status': 'submitting', 'response': 'Great! Finalizing and submitting your timesheet now...', 'draft': _TIMESHEET_DRAFT}
 
     try:
         prompt = f"""
         Analyze the user's timesheet request: '{user_message}'.
-        Extract the day of the week and the total hours.
+        Extract the day, hours, and activity.
         The day must be one of: Monday, Tuesday, Wednesday, Thursday, Friday.
-        The hours MUST be an integer or a float, not a word. Convert any number words to digits.
-        Respond ONLY with a JSON object in the format {{"day": "...", "hours": ...}}.
-        Do not include any other text, greetings, or explanations.
-        If you cannot determine both values, respond with {{"error": "incomplete information"}}.
+        The hours MUST be a number. If the activity is 'PTO', assume 8 hours.
+        The activity is what the user is describing (e.g., 'PTO', 'Misc', 'Project Work').
+        Respond ONLY with a JSON object in the format {{"day": "...", "hours": ..., "activity": "..."}}.
+        If you cannot determine all values, respond with {{"error": "incomplete information"}}.
         """
         
-        print("2. SENDING PROMPT TO AI...")
         model = genai.GenerativeModel('gemini-1.5-flash-latest')
         response = model.generate_content(prompt)
         
-        print(f"3. RAW RESPONSE FROM AI:\n---\n{response.text}\n---")
-        
-        # This is often the point of failure. The AI includes ```json ... ```
         json_response_text = response.text.strip().replace('`', '').replace('json', '')
-        print(f"4. CLEANED TEXT FOR PARSING: '{json_response_text}'")
-
         parsed_data = json.loads(json_response_text)
-        print(f"5. SUCCESSFULLY PARSED JSON: {parsed_data}")
 
         if 'error' in parsed_data:
-            print("6. AI returned an error.")
-            return {"status": "error", "response": "I'm sorry, I didn't quite understand. Please specify the day and the total hours."}
+            return {"status": "error", "response": "I'm sorry, I didn't quite understand. Please specify the day, hours, and activity."}
 
         day = parsed_data.get('day')
         hours = parsed_data.get('hours')
+        activity = parsed_data.get('activity', 'Misc') 
 
         if day and hours is not None:
-            print(f"6. DATA EXTRACTED: Day={day}, Hours={hours}. Calling update function.")
-            if _update_draft_hours(day, hours):
-                 print("7. DRAFT UPDATE SUCCESSFUL.")
-                 return {"status": "success", "response": f"OK. I've updated the total for {day} to {hours} hours.", "draft": _TIMESHEET_DRAFT}
+            # We now pass the 'activity' to our helper function
+            if _update_draft_hours(day, hours, activity):
+                 return {"status": "success", "response": f"Okay. I've updated {day} to {hours} hours for {activity}.", "draft": _TIMESHEET_DRAFT}
             else:
-                print("7. DRAFT UPDATE FAILED: Day not found.")
                 return {"status": "error", "response": f"I couldn't find {day} in the current draft."}
 
     except Exception as e:
-        # This is where your error is being caught!
-        print(f"!!!!!! ERROR CAUGHT !!!!!!\nAI parsing or draft update failed: {e}\n!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print(f"AI parsing or draft update failed: {e}")
         return {"status": "error", "response": "I had trouble processing that request. Please try rephrasing."}
     
     return {"status": "error", "response": "I was unable to update the timesheet with that information. Please try again."}
-# -----------------------------
+
 # FAQs from Salesforce
 # -----------------------------
 def get_faqs_from_salesforce():
@@ -588,6 +561,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
