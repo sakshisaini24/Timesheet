@@ -391,7 +391,7 @@ Respond concisely and helpfully about hours, tasks, PTO, or provide guidance.
 #Generate Bot response on update
 #------------------------------
 
-ef update_draft_from_chat(message):
+def update_draft_from_chat(message):
     """Updates draft hours intelligently using OpenAI function calling."""
     global _TIMESHEET_DRAFT
     if not _TIMESHEET_DRAFT:
@@ -477,6 +477,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
