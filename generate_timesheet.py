@@ -51,6 +51,30 @@ PICKLIST_MAPPING = {
     'Misc': 'Business Day - Morning Shift - Standard Time'
 }
 
+timesheet_function = {
+    "name": "update_timesheet",
+    "description": "Update the timesheet draft with hours for a given day",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "day": {
+                "type": "string",
+                "enum": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+                "description": "The day of the week to update"
+            },
+            "activity": {
+                "type": "string",
+                "enum": ["Meetings", "Misc", "PTO"],
+                "description": "Which activity to update"
+            },
+            "hours": {
+                "type": "number",
+                "description": "Number of hours to set for the activity"
+            }
+        },
+        "required": ["day", "activity", "hours"]
+    }
+}
 
 # -----------------------------
 # PDF Generation
@@ -367,71 +391,45 @@ Respond concisely and helpfully about hours, tasks, PTO, or provide guidance.
 #Generate Bot response on update
 #------------------------------
 
-def update_draft_from_chat(message):
-    """Updates draft hours intelligently using OpenAI LLM."""
+ef update_draft_from_chat(message):
+    """Updates draft hours intelligently using OpenAI function calling."""
     global _TIMESHEET_DRAFT
     if not _TIMESHEET_DRAFT:
-        return {'status': 'error', 'response': 'No timesheet draft found.'}
-
-    # Prepare prompt for the LLM
-    prompt = f"""
-You are a helpful timesheet assistant. 
-The current timesheet draft is: {_TIMESHEET_DRAFT}
-
-The user says: {message}
-
-Instructions:
-1. Identify which day(s) the user wants to update.
-2. Identify which activity (Meetings or Misc) should be updated.
-3. Identify the number of hours to set.
-4. Respond ONLY in JSON format like this:
-{{
-  "status": "success",
-  "updates": [
-    {{"day": "Monday", "activity": "Misc", "hours": 4}},
-    ...
-  ]
-}}
-If you cannot determine the update, return:
-{{ "status": "error", "updates": [] }}
-"""
+        return {"status": "error", "response": "No timesheet draft found."}
 
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "system", "content": prompt}],
-            temperature=0
+        # Call OpenAI with function calling
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",  # or gpt-3.5-turbo
+            messages=[
+                {"role": "system", "content": "You are a helpful timesheet assistant."},
+                {"role": "user", "content": message}
+            ],
+            functions=[timesheet_function],
+            function_call={"name": "update_timesheet"}  # force this function
         )
 
-        llm_output = response.choices[0].message.content.strip()
+        # Extract JSON arguments from function call
+        func_args = response.choices[0].message.function_call.arguments
+        args = json.loads(func_args)
 
-        # --- Sanitize JSON output ---
-        import re
-        match = re.search(r'\{.*\}', llm_output, re.DOTALL)
-        if not match:
-            return {'status': 'error', 'response': 'LLM output not parseable.'}
-        import json
-        data = json.loads(match.group())
+        day = args["day"]
+        activity = args["activity"]
+        hours = args["hours"]
 
-        if data.get('status') == 'success' and data.get('updates'):
-            for upd in data['updates']:
-                # --- Normalize day name ---
-                day = upd.get('day', '').capitalize()
-                activity = upd.get('activity', 'Misc')
-                hours = upd.get('hours')
-                if day in _TIMESHEET_DRAFT and hours is not None:
-                    _TIMESHEET_DRAFT[day]['data'][activity] = float(hours)
-                    # If updating Misc, reset Meetings to fill 8 hours
-                    if activity == 'Misc':
-                        _TIMESHEET_DRAFT[day]['data']['Meetings'] = round(8 - float(hours), 2)
-            return {'status': 'success', 'response': 'Timesheet updated.', 'draft': _TIMESHEET_DRAFT}
+        # Update the draft
+        if day in _TIMESHEET_DRAFT:
+            _TIMESHEET_DRAFT[day]['data'][activity] = float(hours)
+            # If updating Misc, adjust Meetings to sum to 8 hours
+            if activity == "Misc":
+                _TIMESHEET_DRAFT[day]['data']['Meetings'] = round(8 - float(hours), 2)
 
-        return {'status': 'error', 'response': 'Could not interpret your request.'}
+            return {"status": "success", "response": f"{activity} updated for {day}.", "draft": _TIMESHEET_DRAFT}
+        else:
+            return {"status": "error", "response": "Invalid day specified."}
 
     except Exception as e:
-        return {'status': 'error', 'response': f"Error: {e}"}
-
-
+        return {"status": "error", "response": f"Error updating draft: {e}"}
 # -----------------------------
 # FAQs from Salesforce
 # -----------------------------
@@ -479,6 +477,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
