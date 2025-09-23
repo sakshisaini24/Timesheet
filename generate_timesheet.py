@@ -4,6 +4,7 @@ import json
 import re
 import base64
 import mimetypes
+import openai
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -27,6 +28,9 @@ from sf_connect import connect_to_salesforce
 # Constants
 # -----------------------------
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
+
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+openai.api_key = OPENAI_API_KEY
 
 # Hardcoded Salesforce Activity ID for the prototype
 # REPLACE THIS WITH A REAL RECORD ID FROM YOUR ORG
@@ -338,59 +342,26 @@ def update_timesheet_draft(day, new_hours):
 
 
 def generate_bot_response(user_message):
-    """Generates a natural language response for timesheet queries."""
+    """Use GPT to generate timesheet-related responses dynamically."""
     global _TIMESHEET_DRAFT
-    lower_message = user_message.lower()
+    draft_summary = _TIMESHEET_DRAFT or {}
+    
+    prompt = f"""
+You are a helpful timesheet assistant.
+Timesheet data for the week: {draft_summary}
+User asks: "{user_message}"
+Respond concisely and helpfully about hours, tasks, PTO, or provide guidance.
+"""
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "system", "content": prompt}]
+        )
+        answer = response.choices[0].message.content.strip()
+        return answer
+    except Exception as e:
+        return f"Error generating AI response: {e}"
 
-    if "hours" in lower_message or "time on" in lower_message:
-        draft = _TIMESHEET_DRAFT
-        for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
-            if day in lower_message:
-                day_data = draft.get(day.capitalize(), {}).get('data', {})
-                if 'PTO' in day_data:
-                    return f"You were marked as PTO on {day.capitalize()} for 8 hours."
-                else:
-                    return f"On {day.capitalize()}, you had {day_data.get('Meetings', 0)} hours of meetings and {day_data.get('Misc', 0)} hours marked as miscellaneous."
-        return "I can't find that specific day. Please ask about a day of the week."
-
-    elif "draft" in lower_message or "summary" in lower_message:
-        draft = _TIMESHEET_DRAFT
-        summary = "Here is your timesheet draft summary:\n"
-        for day, data in draft.items():
-            day_data = data.get('data', {})
-            if 'PTO' in day_data:
-                summary += f"- {day}: 8 hours PTO\n"
-            else:
-                summary += f"- {day}: Meetings: {day_data.get('Meetings', 0)} hrs, Misc: {day_data.get('Misc', 0)} hrs\n"
-        return summary
-
-    elif "hello" in lower_message or "hi" in lower_message:
-        return "Hello! I am your timesheet assistant. How can I help you with your timesheet draft?"
-
-    elif ("change" in lower_message or "set" in lower_message) and ("hours" in lower_message or "time" in lower_message):
-        numbers = re.findall(r'\b\d+\b', lower_message)
-        if not numbers:
-            # If no digit found, check for number words
-            for num_word, digit in NUM_DICT.items():
-                if num_word in lower_message:
-                    hours = float(digit)
-                    break
-            else:
-                hours = None
-        else:
-            hours = float(numbers[0])
-
-        for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
-            if day in lower_message:
-                if hours is not None:
-                    if update_timesheet_draft(day.capitalize(), hours):
-                        return f"Okay, I have set {hours} hours for {day.capitalize()}. Let me know if you need to make any more changes."
-                    else:
-                        return "I could not update the timesheet. Please try again."
-
-        return "I couldn't understand that. Please specify the day and the number of hours."
-
-    return "I can help with questions about your timesheet. Try asking me about your hours on a specific day."
 
 
 def update_draft_from_chat(message):
@@ -472,6 +443,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
