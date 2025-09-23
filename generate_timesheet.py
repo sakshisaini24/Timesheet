@@ -398,7 +398,7 @@ def update_draft_from_chat(user_message):
         hours = float(m.group(2))
         if day in _TIMESHEET_DRAFT:
             _TIMESHEET_DRAFT[day]['data']['Misc'] = hours
-            _TIMESHEET_DRAFT[day]['data']['Meetings'] = round(8 - hours, 2)
+            _TIMESHEET_DRAFT[day]['data']['Meetings'] = 0
             return {"status": "success", "response": f"Updated {day} with {hours} hours.", "draft": _TIMESHEET_DRAFT}
     return {"status": "error", "response": "Could not parse message."}
 
@@ -450,6 +450,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
