@@ -340,7 +340,7 @@ def update_timesheet_draft(day, new_hours):
         return True
     return False
 
-
+# OPEN AI INTEGRATION
 def generate_bot_response(user_message):
     """Use GPT to generate timesheet-related responses dynamically."""
     global _TIMESHEET_DRAFT
@@ -443,6 +443,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
