@@ -388,9 +388,12 @@ def generate_bot_response(user_message):
         return f"Error generating response: {e}"
 
 
+#Updating the draft with user input
+
 def update_draft_from_chat(user_message):
     """
-    Updates the draft from chat, converting number words to digits.
+    Updates the draft from chat, converting number words to digits
+    AND handling special commands like 'PTO'.
     """
     global _TIMESHEET_DRAFT
     if not _TIMESHEET_DRAFT:
@@ -400,21 +403,44 @@ def update_draft_from_chat(user_message):
     for word, number in NUM_DICT.items():
         if word in processed_message:
             processed_message = processed_message.replace(word, str(number))
-    
-    m = re.search(r"(monday|tuesday|wednesday|thursday|friday).+?(\d+\.?\d*|\d+)", processed_message, re.I)
 
-    if m:
-        day = m.group(1).capitalize()
-        hours = float(m.group(2))
+    # Pattern 1: Look for a day and a number
+    number_match = re.search(r"(monday|tuesday|wednesday|thursday|friday).+?(\d+\.?\d*|\d+)", processed_message, re.I)
+    
+    # Pattern 2: Look for a day and "pto"
+    pto_match = re.search(r"(monday|tuesday|wednesday|thursday|friday).+?(pto)", processed_message, re.I)
+
+    if number_match:
+        day = number_match.group(1).capitalize()
+        hours = float(number_match.group(2))
         if day in _TIMESHEET_DRAFT:
-            # Set total hours for the day, assigning all to Misc
+            # Set total hours, assigning all to Misc and clearing other categories
             _TIMESHEET_DRAFT[day]['data']['Misc'] = hours
-            _TIMESHEET_DRAFT[day]['data']['Meetings'] = 0 # Zero out the other category
+            _TIMESHEET_DRAFT[day]['data']['Meetings'] = 0
+            if 'PTO' in _TIMESHEET_DRAFT[day]['data']:
+                del _TIMESHEET_DRAFT[day]['data']['PTO'] # Remove PTO if setting hours
+            
             return {
                 "status": "success",
                 "response": f"Updated {day} with a total of {hours} hours.",
                 "draft": _TIMESHEET_DRAFT
             }
+            
+    # --- THIS IS THE NEW LOGIC ---
+    elif pto_match:
+        day = pto_match.group(1).capitalize()
+        if day in _TIMESHEET_DRAFT:
+            # Set the day to a full 8-hour PTO day
+            _TIMESHEET_DRAFT[day]['data']['PTO'] = 8
+            _TIMESHEET_DRAFT[day]['data']['Misc'] = 0
+            _TIMESHEET_DRAFT[day]['data']['Meetings'] = 0
+            
+            return {
+                "status": "success",
+                "response": f"Set {day} as a full day of PTO.",
+                "draft": _TIMESHEET_DRAFT
+            }
+    # --- END OF NEW LOGIC ---
 
     return {"status": "error", "response": "I was unable to update the timesheet with that information. Please try again."}
 
@@ -466,6 +492,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
