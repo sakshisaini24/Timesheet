@@ -445,6 +445,78 @@ def update_draft_from_chat(user_message):
     return {"status": "error", "response": "I was unable to update the timesheet with that information. Please try again."}
 
 
+# Keep this function, as it will be called by our new logic
+def _update_draft_hours(day, hours, activity='Misc'):
+    """Helper function to actually modify the draft."""
+    global _TIMESHEET_DRAFT
+    if day in _TIMESHEET_DRAFT:
+        if activity == 'PTO':
+            _TIMESHEET_DRAFT[day]['data']['PTO'] = hours
+            _TIMESHEET_DRAFT[day]['data']['Misc'] = 0
+            _TIMESHEET_DRAFT[day]['data']['Meetings'] = 0
+        else: # For Misc, Project Work, etc.
+            _TIMESHEET_DRAFT[day]['data']['Misc'] = hours
+            _TIMESHEET_DRAFT[day]['data']['Meetings'] = 8 - hours if hours < 8 else 0
+            if 'PTO' in _TIMESHEET_DRAFT[day]['data']:
+                del _TIMESHEET_DRAFT[day]['data']['PTO']
+        return True
+    return False
+
+
+# THIS IS YOUR NEW, SMARTER CHAT FUNCTION
+def process_chat_command(user_message):
+    """
+    Processes advanced user commands.
+    1. Checks for simple keywords ("submit").
+    2. If none, asks the GenAI to parse complex commands.
+    """
+    global _TIMESHEET_DRAFT
+    message_lower = user_message.lower()
+    if 'submit' in message_lower or 'looks good' in message_lower or 'correct' in message_lower:
+
+        return {'status': 'submitting', 'response': 'Great! Finalizing and submitting your timesheet now...', 'draft': _TIMESHEET_DRAFT}
+
+    try:
+        # This prompt forces the AI to act as a parser and return ONLY JSON
+        prompt = f"""
+        Analyze the user's timesheet request: '{user_message}'.
+        Extract the day of the week, the total hours, and the primary activity.
+        The day must be one of: Monday, Tuesday, Wednesday, Thursday, Friday.
+        The hours must be a number.
+        The activity is what the user is describing (e.g., 'PTO', 'project work', 'meetings').
+        Respond ONLY with a JSON object in the format {{"day": "...", "hours": ..., "activity": "..."}}.
+        If you cannot determine all three values, respond with {{"error": "incomplete information"}}.
+        """
+        
+        # Using Gemini as an example
+        model = genai.GenerativeModel('gemini-pro')
+        response = model.generate_content(prompt)
+        
+        # Clean up the response to make sure it's valid JSON
+        json_response_text = response.text.strip().replace('`', '').replace('json', '')
+        parsed_data = json.loads(json_response_text)
+
+        if 'error' in parsed_data:
+            return {"status": "error", "response": "I'm sorry, I didn't quite understand. Could you please specify the day, hours, and activity?"}
+
+        day = parsed_data.get('day')
+        hours = parsed_data.get('hours')
+        activity = parsed_data.get('activity', 'Misc')
+
+        if day and hours is not None:
+            # We have structured data! Now update the draft.
+            if _update_draft_hours(day.capitalize(), float(hours), activity.upper()):
+                 return {"status": "success", "response": f"OK. I've updated {day} to {hours} hours of {activity}.", "draft": _TIMESHEET_DRAFT}
+            else:
+                return {"status": "error", "response": f"I couldn't find {day} in the current draft."}
+
+    except Exception as e:
+        print(f"AI parsing failed: {e}")
+        return {"status": "error", "response": "I had trouble processing that request. Please try rephrasing."}
+    
+    return {"status": "error", "response": "I'm not sure how to handle that. Please try again."}
+#------------------------------
+
 # -----------------------------
 # FAQs from Salesforce
 # -----------------------------
@@ -492,6 +564,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
