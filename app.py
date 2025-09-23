@@ -47,12 +47,13 @@ def chat():
     
     return jsonify({'response': bot_response})
 
+
 @app.route('/update_draft_from_chat', methods=['POST'])
 def update_draft():
     data = request.json
     message = data.get('message', '')
 
-    response = generate_timesheet.update_draft_from_chat(message)
+    response = generate_timesheet.process_chat_command(message) 
     
     return jsonify(response)
 
@@ -87,8 +88,11 @@ def recall_to_draft():
     
     return jsonify(result)
 
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
 
