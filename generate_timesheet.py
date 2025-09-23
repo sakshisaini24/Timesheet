@@ -507,7 +507,7 @@ def process_chat_command(user_message):
         """
         
         print("2. SENDING PROMPT TO AI...")
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
         response = model.generate_content(prompt)
         
         print(f"3. RAW RESPONSE FROM AI:\n---\n{response.text}\n---")
@@ -588,6 +588,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
