@@ -371,7 +371,6 @@ def update_timesheet_draft(day, new_hours):
 # -----------------------------
 # Gemini Integration
 # -----------------------------
-
 def generate_bot_response(user_message):
     global _TIMESHEET_DRAFT
     draft_summary = _TIMESHEET_DRAFT or {}
@@ -451,6 +450,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
