@@ -479,53 +479,68 @@ def _update_draft_hours(day, hours):
 
 # --- STEP 2: USE THIS SLIGHTLY TWEAKED MAIN FUNCTION ---
 # The prompt is now more forceful to ensure the AI returns a number.
+# In generate_timesheet.py, replace the function with this one.
+
 def process_chat_command(user_message):
     """
-    Processes advanced user commands.
+    Processes advanced user commands with extensive debugging print statements.
     """
+    print("\n--- NEW REQUEST ---")
+    print(f"1. RECEIVED MESSAGE: '{user_message}'")
+
     global _TIMESHEET_DRAFT
     message_lower = user_message.lower()
 
     if 'submit' in message_lower or 'looks good' in message_lower or 'correct' in message_lower:
+        print("2. DETECTED 'SUBMIT' KEYWORD. SKIPPING AI.")
         return {'status': 'submitting', 'response': 'Great! Finalizing and submitting your timesheet now...', 'draft': _TIMESHEET_DRAFT}
 
     try:
-        # A stricter prompt for the AI
         prompt = f"""
         Analyze the user's timesheet request: '{user_message}'.
         Extract the day of the week and the total hours.
         The day must be one of: Monday, Tuesday, Wednesday, Thursday, Friday.
         The hours MUST be an integer or a float, not a word. Convert any number words to digits.
         Respond ONLY with a JSON object in the format {{"day": "...", "hours": ...}}.
+        Do not include any other text, greetings, or explanations.
         If you cannot determine both values, respond with {{"error": "incomplete information"}}.
         """
         
+        print("2. SENDING PROMPT TO AI...")
         model = genai.GenerativeModel('gemini-pro')
         response = model.generate_content(prompt)
         
+        print(f"3. RAW RESPONSE FROM AI:\n---\n{response.text}\n---")
+        
+        # This is often the point of failure. The AI includes ```json ... ```
         json_response_text = response.text.strip().replace('`', '').replace('json', '')
+        print(f"4. CLEANED TEXT FOR PARSING: '{json_response_text}'")
+
         parsed_data = json.loads(json_response_text)
+        print(f"5. SUCCESSFULLY PARSED JSON: {parsed_data}")
 
         if 'error' in parsed_data:
+            print("6. AI returned an error.")
             return {"status": "error", "response": "I'm sorry, I didn't quite understand. Please specify the day and the total hours."}
 
         day = parsed_data.get('day')
         hours = parsed_data.get('hours')
 
         if day and hours is not None:
-            # It now calls the NEW, simpler helper function
+            print(f"6. DATA EXTRACTED: Day={day}, Hours={hours}. Calling update function.")
             if _update_draft_hours(day, hours):
+                 print("7. DRAFT UPDATE SUCCESSFUL.")
                  return {"status": "success", "response": f"OK. I've updated the total for {day} to {hours} hours.", "draft": _TIMESHEET_DRAFT}
             else:
+                print("7. DRAFT UPDATE FAILED: Day not found.")
                 return {"status": "error", "response": f"I couldn't find {day} in the current draft."}
 
     except Exception as e:
-        print(f"AI parsing or draft update failed: {e}")
+        # This is where your error is being caught!
+        print(f"!!!!!! ERROR CAUGHT !!!!!!\nAI parsing or draft update failed: {e}\n!!!!!!!!!!!!!!!!!!!!!!!!!")
         return {"status": "error", "response": "I had trouble processing that request. Please try rephrasing."}
     
     return {"status": "error", "response": "I was unable to update the timesheet with that information. Please try again."}
-#------------------------------
-
 # -----------------------------
 # FAQs from Salesforce
 # -----------------------------
@@ -573,6 +588,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
