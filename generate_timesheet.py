@@ -447,60 +447,57 @@ def update_draft_from_chat(user_message):
 
 # In generate_timesheet.py
 
-# This is the global variable that holds your timesheet data
+# In generate_timesheet.py
+
 _TIMESHEET_DRAFT = None 
 
-# --- STEP 1: ADD THIS MISSING HELPER FUNCTION ---
-# This function contains the actual logic for changing the hours in the draft.
-def _update_draft_hours(day, hours, activity='Misc'):
-    """Helper function to safely modify the _TIMESHEET_DRAFT global variable."""
+# --- STEP 1: REPLACE your old helper function with THIS SIMPLER VERSION ---
+def _update_draft_hours(day, hours):
+    """
+    Safely and directly sets the TOTAL hours for a given day.
+    It assigns all hours to 'Misc' and clears other categories.
+    """
     global _TIMESHEET_DRAFT
     day_capitalized = day.capitalize()
 
     if _TIMESHEET_DRAFT and day_capitalized in _TIMESHEET_DRAFT:
-        # Clear existing hours for that day to avoid conflicts
-        _TIMESHEET_DRAFT[day_capitalized]['data'] = {'Meetings': 0, 'Misc': 0}
+        # This is the fix: Wipe the slate clean for that day...
+        _TIMESHEET_DRAFT[day_capitalized]['data'] = {
+            'Meetings': 0,
+            'Misc': 0
+        }
+        # ...and then set the new total under Misc.
+        _TIMESHEET_DRAFT[day_capitalized]['data']['Misc'] = float(hours)
+        
+        # Remove PTO if it exists, as we are setting specific hours
         if 'PTO' in _TIMESHEET_DRAFT[day_capitalized]['data']:
             del _TIMESHEET_DRAFT[day_capitalized]['data']['PTO']
-
-        # Set the new hours based on activity
-        if activity.upper() == 'PTO':
-            _TIMESHEET_DRAFT[day_capitalized]['data']['PTO'] = hours
-        else:
-            _TIMESHEET_DRAFT[day_capitalized]['data']['Misc'] = hours
         
-        # Recalculate meetings if needed
-        total_hours = sum(_TIMESHEET_DRAFT[day_capitalized]['data'].values())
-        if total_hours < 8 and 'PTO' not in _TIMESHEET_DRAFT[day_capitalized]['data']:
-             # This part is optional: you can decide if you want to auto-fill the rest of the day
-             pass
-
-        return True # Indicate success
-    return False # Indicate failure (day not found)
+        return True # Success
+    return False # Failure
 
 
-# --- STEP 2: REPLACE YOUR OLD FUNCTION WITH THIS CORRECTED VERSION ---
-# This is the main function, now correctly calling the helper above.
+# --- STEP 2: USE THIS SLIGHTLY TWEAKED MAIN FUNCTION ---
+# The prompt is now more forceful to ensure the AI returns a number.
 def process_chat_command(user_message):
     """
-    Processes advanced user commands by checking for keywords or using GenAI to parse.
+    Processes advanced user commands.
     """
     global _TIMESHEET_DRAFT
     message_lower = user_message.lower()
 
-    # (Code for the "Skip Ahead" command remains the same)
     if 'submit' in message_lower or 'looks good' in message_lower or 'correct' in message_lower:
         return {'status': 'submitting', 'response': 'Great! Finalizing and submitting your timesheet now...', 'draft': _TIMESHEET_DRAFT}
 
     try:
+        # A stricter prompt for the AI
         prompt = f"""
         Analyze the user's timesheet request: '{user_message}'.
-        Extract the day of the week, the total hours, and the primary activity.
+        Extract the day of the week and the total hours.
         The day must be one of: Monday, Tuesday, Wednesday, Thursday, Friday.
-        The hours must be a number (convert words like 'six' to 6).
-        The activity is what the user is describing (e.g., 'PTO', 'project work', 'meetings').
-        Respond ONLY with a JSON object in the format {{"day": "...", "hours": ..., "activity": "..."}}.
-        If you cannot determine all three values, respond with {{"error": "incomplete information"}}.
+        The hours MUST be an integer or a float, not a word. Convert any number words to digits.
+        Respond ONLY with a JSON object in the format {{"day": "...", "hours": ...}}.
+        If you cannot determine both values, respond with {{"error": "incomplete information"}}.
         """
         
         model = genai.GenerativeModel('gemini-pro')
@@ -510,17 +507,15 @@ def process_chat_command(user_message):
         parsed_data = json.loads(json_response_text)
 
         if 'error' in parsed_data:
-            return {"status": "error", "response": "I'm sorry, I didn't quite understand. Please specify the day and hours."}
+            return {"status": "error", "response": "I'm sorry, I didn't quite understand. Please specify the day and the total hours."}
 
         day = parsed_data.get('day')
         hours = parsed_data.get('hours')
-        activity = parsed_data.get('activity', 'Misc')
 
         if day and hours is not None:
-            # THIS IS THE CRITICAL PART THAT NOW WORKS
-            # It successfully calls the helper function to update the draft
-            if _update_draft_hours(day, float(hours), activity):
-                 return {"status": "success", "response": f"OK. I've updated {day} to {hours} hours of {activity}.", "draft": _TIMESHEET_DRAFT}
+            # It now calls the NEW, simpler helper function
+            if _update_draft_hours(day, hours):
+                 return {"status": "success", "response": f"OK. I've updated the total for {day} to {hours} hours.", "draft": _TIMESHEET_DRAFT}
             else:
                 return {"status": "error", "response": f"I couldn't find {day} in the current draft."}
 
@@ -578,6 +573,7 @@ def delete_timesheet_records(record_ids):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
