@@ -345,7 +345,7 @@ def process_chat_command(user_message):
     message_lower = user_message.lower()
 
     if 'submit' in message_lower or 'looks good' in message_lower or 'correct' in message_lower:
-        return {'status': 'submitting', 'response': 'Great! Finalizing and submitting your timesheet now...', 'draft': _TIMESHEET_DRAFT}
+        return {'status': 'submitting', 'response': 'Great! Finalizing and submitting your timesheet now...🎉', 'draft': _TIMESHEET_DRAFT}
 
     try:
         prompt = f"""
@@ -354,8 +354,8 @@ def process_chat_command(user_message):
         For each action, extract the day, hours, and activity (e.g., 'PTO', 'Misc').
         If 'PTO' is mentioned without hours, assume 8.
         Respond ONLY with a JSON object with one key, "actions", which is a list of action objects.
-        Example for "Change Monday to 4 hours PTO and 4 hours misc":
-        {{"actions": [{{"day": "Monday", "hours": 4, "activity": "PTO"}}, {{"day": "Monday", "hours": 4, "activity": "Misc"}}]}}
+        Example for "Change Monday to 4 hours PTO, 2 hours misc and 2 hours meeting":
+        {{"actions": [{{"day": "Monday", "hours": 4, "activity": "PTO"}}, {{"day": "Monday", "hours": 2, "activity": "Misc"}}, {{"day": "Monday", "hours":2, "activity":"Meetings"]}}
         If no valid actions, respond with {{"actions": []}}.
         """
         model = genai.GenerativeModel('gemini-1.5-flash-latest')
@@ -365,7 +365,7 @@ def process_chat_command(user_message):
         actions = parsed_data.get('actions', [])
 
         if not actions:
-            return {"status": "error", "response": "I'm sorry, I couldn't find any specific actions in your request."}
+            return {"status": "error", "response": "I'm sorry, Can you please specify your tasks?"}
 
         confirmation_messages = []
         day_to_update = actions[0].get('day')
@@ -379,8 +379,6 @@ def process_chat_command(user_message):
             if day and hours is not None:
                 if _update_draft_hours(day, hours, activity, clear_day=False):
                     confirmation_messages.append(f"{hours} hours for {activity}")
-                else:
-                    return {"status": "error", "response": f"I couldn't find {day} in the current draft."}
         
         if confirmation_messages:
             full_confirmation = f"OK. I've updated {day_to_update} with " + " and ".join(confirmation_messages) + "."
@@ -455,5 +453,6 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
