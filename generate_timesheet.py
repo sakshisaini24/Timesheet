@@ -64,8 +64,10 @@ class PDF(FPDF):
         self.set_font('Inter', 'I', 8)
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
+# In generate_timesheet.py, replace the PDF creation function
+
 def create_timesheet_pdf(submitted_data):
-    """Generates a professional, branded PDF with a table, color, and correct partial PTO logic."""
+    """Generates a professional, branded, and SORTED PDF."""
     pdf = PDF('P', 'mm', 'A4')
     
     try:
@@ -73,8 +75,8 @@ def create_timesheet_pdf(submitted_data):
         pdf.add_font('Inter', 'B', 'Inter-Bold.ttf', uni=True)
         pdf.add_font('Inter', 'I', 'Inter-Italic.ttf', uni=True)
     except RuntimeError:
-        print("Font files not found, using Arial. For custom fonts, add .ttf files to your project directory.")
-    
+        print("Font files not found, using Arial.")
+        
     pdf.set_font('Inter', '', 11)
     pdf.add_page()
     
@@ -86,9 +88,16 @@ def create_timesheet_pdf(submitted_data):
     pdf.cell(65, 10, 'Productivity Insight', 1, 1, 'C', 1)
 
     total_productive_hours = 0
-    for day, hours_data in submitted_data.items():
+    
+    # --- THIS IS THE FIX for SORTING ---
+    day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+    # Filter out days not in the draft and sort them
+    sorted_days = [day for day in day_order if day in submitted_data]
+
+    for day in sorted_days:
+        hours_data = submitted_data[day]
+        # (The rest of the PDF generation logic for the loop is the same as before)
         pdf.set_font('Inter', '', 10)
-        
         pto_hours = hours_data['data'].get('PTO', 0)
         daily_total = sum(hours_data['data'].values())
         worked_hours = daily_total - pto_hours
@@ -107,6 +116,7 @@ def create_timesheet_pdf(submitted_data):
         row_height = max(num_lines * cell_height, 16)
 
         y_before_row = pdf.get_y()
+        # ... (The rest of the multi_cell drawing logic is the same)
         pdf.multi_cell(30, row_height, day, 1, 'C', 0)
         
         pdf.set_y(y_before_row)
@@ -123,7 +133,7 @@ def create_timesheet_pdf(submitted_data):
         if pto_hours >= 8:
             daily_productivity_message = "On Leave"
             color = (128, 128, 128)
-        else:
+        else: # (Productivity logic is the same)
             if worked_hours >= 10:
                 daily_productivity_message = "Excellent! Remember to get some rest."
                 color = (220, 53, 69)
@@ -147,6 +157,7 @@ def create_timesheet_pdf(submitted_data):
 
         pdf.set_text_color(0, 0, 0)
         pdf.set_y(y_before_row + row_height)
+
 
     pdf.set_font('Inter', 'B', 12)
     pdf.set_fill_color(240, 240, 240)
@@ -321,21 +332,36 @@ def submit_to_salesforce(submitted_data):
 # --- AI & CHATBOT LOGIC ---
 # ==============================================================================
 
+# In generate_timesheet.py, replace this helper function
+
 def _update_draft_hours(day, hours, activity='Misc', clear_day=True):
-    """Helper function to safely modify the draft, handling multiple activities per day."""
+    """
+    Safely sets hours, correctly assigning to PTO, Meetings, Project Work, or Misc.
+    """
     global _TIMESHEET_DRAFT
     day_capitalized = day.capitalize()
     if _TIMESHEET_DRAFT and day_capitalized in _TIMESHEET_DRAFT:
         if clear_day:
+            # Reset the day's data completely
             _TIMESHEET_DRAFT[day_capitalized]['data'] = {'Meetings': 0, 'Misc': 0, 'Project Work': 0}
         
         activity_upper = activity.upper()
-        if activity_upper == 'PTO':
+        # Use .get() to avoid KeyError if a category doesn't exist yet
+        
+        # --- THIS IS THE FIX ---
+        if 'PTO' in activity_upper:
             current_hours = _TIMESHEET_DRAFT[day_capitalized]['data'].get('PTO', 0)
             _TIMESHEET_DRAFT[day_capitalized]['data']['PTO'] = current_hours + float(hours)
-        else:
+        elif 'MEETING' in activity_upper:
+            current_hours = _TIMESHEET_DRAFT[day_capitalized]['data'].get('Meetings', 0)
+            _TIMESHEET_DRAFT[day_capitalized]['data']['Meetings'] = current_hours + float(hours)
+        elif 'PROJECT' in activity_upper:
+            current_hours = _TIMESHEET_DRAFT[day_capitalized]['data'].get('Project Work', 0)
+            _TIMESHEET_DRAFT[day_capitalized]['data']['Project Work'] = current_hours + float(hours)
+        else: # Default to Misc
             current_hours = _TIMESHEET_DRAFT[day_capitalized]['data'].get('Misc', 0)
             _TIMESHEET_DRAFT[day_capitalized]['data']['Misc'] = current_hours + float(hours)
+            
         return True
     return False
 
@@ -453,6 +479,7 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
 
