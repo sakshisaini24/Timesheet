@@ -472,6 +472,52 @@ def delete_timesheet_records(record_ids):
     except Exception as e:
         return {'status': 'error', 'message': f"Error deleting records: {e}"}
 
+def get_team_timesheet_data(manager_id):
+    """Queries Salesforce for all timesheets submitted to a manager for the current week."""
+    sf = connect_to_salesforce()
+    soql_query = f"""
+        SELECT Owner.Name, Hours__c, Time_Type__c
+        FROM Timesheet__c
+        WHERE Date__c = LAST_N_DAYS:7
+        AND Owner.ManagerId = '{manager_id}'
+        ORDER BY Owner.Name
+    """
+    try:
+        results = sf.query(soql_query)
+        team_data = {}
+        for record in results['records']:
+            owner_name = record['Owner']['Name']
+            if owner_name not in team_data:
+                team_data[owner_name] = []
+            team_data[owner_name].append({
+                'type': record['Time_Type__c'],
+                'hours': record['Hours__c']
+            })
+        return team_data
+    except Exception as e:
+        print(f"Error fetching team data: {e}")
+        return {}
+
+def generate_team_summary_insight(team_data):
+    """Uses GenAI to analyze aggregated team data and create a summary for a manager."""
+    data_summary = json.dumps(team_data, indent=2)
+    prompt = f"""
+    You are an expert business analyst. Analyze the following JSON data of a team's weekly timesheets.
+    Data: {data_summary}
+    Provide a concise, bullet-pointed summary for a busy manager. Identify:
+    1. An overall summary of the team's focus.
+    2. Any individuals at risk of burnout (over 45 hours).
+    3. Any individuals with unusually low hours.
+    4. A general trend or suggestion for the team.
+    Be direct and frame your points as helpful observations.
+    """
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        response = model.generate_content(prompt)
+        return {"status": "success", "summary": response.text}
+    except Exception as e:
+        print(f"Error generating team summary: {e}")
+        return {"status": "error", "message": "Failed to generate AI summary."}
 # ==============================================================================
 # --- MAIN EXECUTION BLOCK (FOR TESTING) ---
 # ==============================================================================
@@ -479,6 +525,7 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
 
