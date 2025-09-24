@@ -256,15 +256,20 @@ def generate_timesheet_draft():
     _TIMESHEET_DRAFT = timesheet
     return _TIMESHEET_DRAFT
 
+
 def submit_to_salesforce(submitted_data):
-    """Submits timesheet data efficiently without creating duplicates."""
+    """Submits timesheet data efficiently using the correct bulk insert method."""
     sf = connect_to_salesforce()
     if not sf:
         return {'status': 'error', 'message': 'Salesforce connection failed.'}
 
     try:
         user_info = sf.query("SELECT Id, ManagerId FROM User WHERE Username = 'sakshi.saini427@agentforce.com'")
+        if not user_info or not user_info.get('records'):
+            return {'status': 'error', 'message': 'User not found in Salesforce. Check the username.'}
         manager_id = user_info['records'][0]['ManagerId']
+        if not manager_id:
+            return {'status': 'error', 'message': 'User found, but they do not have a manager assigned.'}
     except Exception as e:
         return {'status': 'error', 'message': f"Error finding manager: {e}"}
 
@@ -276,7 +281,6 @@ def submit_to_salesforce(submitted_data):
                 'Activity__c': ACTIVITY_ID, 'Date__c': hours_data['date'], 'Status__c': 'Submitted',
                 'Time_Type__c': 'PTO', 'Hours__c': pto_hours
             })
-
         worked_hours = sum(v for k, v in hours_data['data'].items() if k != 'PTO')
         if worked_hours > 0:
             records_to_create.append({
@@ -285,29 +289,26 @@ def submit_to_salesforce(submitted_data):
             })
 
     if not records_to_create:
-        create_timesheet_pdf(submitted_data) 
+        create_timesheet_pdf(submitted_data)
         return {'status': 'success', 'results': {'message': 'No hours to submit.', 'ids': []}}
 
-    created_records = sf.bulk.Timesheet__c.create(records_to_create)
-    # Check for errors and collect the IDs of successfully created records
+    # This is the corrected line
+    created_records = sf.bulk.Timesheet__c.insert(records_to_create)
+    
     created_ids = [record['id'] for record in created_records if record.get('success')]
     errors = [record['errors'] for record in created_records if not record.get('success')]
 
     if errors:
         return {'status': 'error', 'message': f"Failed to create some records: {errors}"}
         
-
     try:
-        if created_ids: 
+        if created_ids:
             approval_requests = []
             for record_id in created_ids:
                 approval_requests.append({
-                    "contextId": record_id,
-                    "nextApproverIds": [manager_id],
-                    "comments": "Timesheet submitted automatically via Agentforce.",
-                    "actionType": "Submit"
+                    "contextId": record_id, "nextApproverIds": [manager_id],
+                    "comments": "Timesheet submitted automatically via Agentforce.", "actionType": "Submit"
                 })
-
             data_payload = {"requests": approval_requests}
             sf.restful('process/approvals/', method='POST', data=json.dumps(data_payload))
     except Exception as e:
@@ -454,4 +455,5 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
