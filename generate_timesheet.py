@@ -516,7 +516,7 @@ def generate_team_summary_insight(team_data):
     4. A general trend or suggestion for the team.
     Be direct and frame your points as helpful observations.
     """
-     try:
+    try:
         model = genai.GenerativeModel('gemini-1.5-flash-latest')
         response = model.generate_content(prompt)
         return {"status": "success", "summary": response.text}
@@ -534,6 +534,7 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
 
