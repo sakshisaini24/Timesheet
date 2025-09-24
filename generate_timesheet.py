@@ -516,13 +516,17 @@ def generate_team_summary_insight(team_data):
     4. A general trend or suggestion for the team.
     Be direct and frame your points as helpful observations.
     """
-    try:
+     try:
         model = genai.GenerativeModel('gemini-1.5-flash-latest')
         response = model.generate_content(prompt)
         return {"status": "success", "summary": response.text}
+    
+    except genai.types.generation_types.StopCandidateException as e:
+        print(f"AI response blocked: {e}")
+        return {"status": "error", "message": "The generated response was blocked for safety reasons. Please try a different query."}
     except Exception as e:
         print(f"Error generating team summary: {e}")
-        return {"status": "error", "message": "Failed to generate AI summary."}
+        return {"status": "error", "message": "An error occurred while generating the AI summary. The AI service may be busy."}
 # ==============================================================================
 # --- MAIN EXECUTION BLOCK (FOR TESTING) ---
 # ==============================================================================
@@ -530,6 +534,7 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
 
