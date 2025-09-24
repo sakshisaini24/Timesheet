@@ -99,19 +99,43 @@ def get_insight():
     insight_result = generate_timesheet.generate_productivity_insights(final_draft)
     return jsonify(insight_result)
 
+# In app.py
 
 @app.route('/team_summary/<manager_id>')
 def team_summary(manager_id):
     team_data = generate_timesheet.get_team_timesheet_data(manager_id)
     if not team_data:
-        return jsonify({"status": "error", "message": "No data found for this team or manager ID."})
+        return jsonify({"status": "error", "message": "No data found for this team."})
+    
+    labels = list(team_data.keys())
+    chart_data = {
+        'labels': labels,
+        'datasets': [
+            {
+                'label': 'Work Hours',
+                'data': [data['Work'] for data in team_data.values()],
+                'backgroundColor': 'rgba(0, 123, 255, 0.7)' # Blue
+            },
+            {
+                'label': 'PTO Hours',
+                'data': [data['PTO'] for data in team_data.values()],
+                'backgroundColor': 'rgba(108, 117, 125, 0.7)' # Grey
+            }
+        ]
+    }
     
     ai_summary = generate_timesheet.generate_team_summary_insight(team_data)
-    return jsonify(ai_summary)
+    
+    return jsonify({
+        "status": "success",
+        "chartData": chart_data,
+        "aiSummary": ai_summary['summary']
+    })
 
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
 
