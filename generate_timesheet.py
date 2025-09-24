@@ -112,9 +112,9 @@ def create_timesheet_pdf(submitted_data):
         print("Font file not found. Using default Arial.")
         pdf.set_font('Arial', '', 11)
 
-
     pdf.add_page()
     
+    # Table Header (This part is correct)
     pdf.set_font('Inter', 'B', 12)
     pdf.set_fill_color(240, 240, 240) 
     pdf.cell(30, 10, 'Day', 1, 0, 'C', 1)
@@ -123,6 +123,7 @@ def create_timesheet_pdf(submitted_data):
     pdf.cell(65, 10, 'Productivity Insight', 1, 1, 'C', 1)
 
     total_hours = 0
+    # This loop builds the main rows of the table
     for day, hours_data in submitted_data.items():
         pdf.set_font('Inter', '', 10)
         is_pto = 'PTO' in hours_data['data']
@@ -131,51 +132,56 @@ def create_timesheet_pdf(submitted_data):
         if not is_pto:
             total_hours += daily_hours
 
-        y_before = pdf.get_y()
-        
-        pdf.multi_cell(30, 8, day, 1, 'L')
-        
         details_str = ""
         for activity, hours in hours_data['data'].items():
             details_str += f"- {activity}: {hours} hrs\n"
+        details_str = details_str.strip()
         
-        pdf.set_y(y_before)
-        pdf.set_x(40) 
-        pdf.multi_cell(70, 8, details_str.strip(), 1, 'L')
+        num_lines = details_str.count('\n') + 1
+        cell_height = 8 
+        row_height = num_lines * cell_height
 
-        pdf.set_y(y_before)
-        pdf.set_x(110) 
-        pdf.multi_cell(25, 8, str(daily_hours), 1, 'C')
+        y_before_row = pdf.get_y()
+
+        pdf.multi_cell(30, row_height, day, 1, 'C', 0)
+        
+        pdf.set_y(y_before_row)
+        pdf.set_x(40)
+        pdf.multi_cell(70, cell_height, details_str, 1, 'L', 0)
+
+        pdf.set_y(y_before_row)
+        pdf.set_x(110)
+        pdf.multi_cell(25, row_height, str(daily_hours), 1, 'C', 0)
 
         daily_productivity_message = ""
-        color = (0, 0, 0) # Default to black
-        
+        color = (0, 0, 0)
         if is_pto:
             daily_productivity_message = "On Leave"
-            color = (128, 128, 128) # Grey
+            color = (128, 128, 128)
         else:
             if daily_hours >= 10:
                 daily_productivity_message = "Excellent! Remember to get some rest."
-                color = (220, 53, 69) # Red (for the warning)
+                color = (220, 53, 69)
             elif daily_hours >= 8:
                 daily_productivity_message = "Excellent! Keep it up."
-                color = (40, 167, 69) # Green
+                color = (40, 167, 69)
             elif daily_hours >= 6:
                 daily_productivity_message = "Good. Solid day."
-                color = (0, 123, 255) # Blue
+                color = (0, 123, 255)
             else:
                 daily_productivity_message = "Room for improvement."
-                color = (255, 193, 7) # Yellow/Orange
+                color = (255, 193, 7)
 
         pdf.set_text_color(*color)
-        pdf.set_y(y_before)
-        pdf.set_x(135) # 110 + 25
-        pdf.multi_cell(65, 8, daily_productivity_message, 1, 'C')
-        
-        # Reset text color for the next row
-        pdf.set_text_color(0, 0, 0)
+        pdf.set_y(y_before_row)
+        pdf.set_x(135)
+        pdf.multi_cell(65, row_height, daily_productivity_message, 1, 'C', 0)
 
-    # --- NEW: Final summary row for the table ---
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_y(y_before_row + row_height)
+    
+    # <-- FIX: This block was moved outside the loop by un-indenting it.
+    # This code now runs only ONCE after the loop is finished.
     pdf.set_font('Inter', 'B', 12)
     pdf.set_fill_color(240, 240, 240)
     pdf.cell(100, 12, 'Total Productive Hours', 1, 0, 'R', 1)
@@ -184,8 +190,6 @@ def create_timesheet_pdf(submitted_data):
     pdf_path = f"timesheet_summary_{datetime.date.today().isoformat()}.pdf"
     pdf.output(pdf_path)
     return pdf_path
-
-
 # -----------------------------
 # Email Sending
 # -----------------------------
@@ -673,6 +677,7 @@ def generate_productivity_insights(timesheet_data):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
