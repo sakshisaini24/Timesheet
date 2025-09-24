@@ -473,35 +473,34 @@ def delete_timesheet_records(record_ids):
         return {'status': 'error', 'message': f"Error deleting records: {e}"}
 
 
-# In generate_timesheet.py
-
 def get_team_timesheet_data(manager_id):
-    """Queries Salesforce for all timesheets submitted to a manager using a robust subquery."""
+    """Queries Salesforce and aggregates team data for charts and AI analysis."""
     sf = connect_to_salesforce()
     manager_id_for_query = '005gK000007m2xxQAA'
-
     soql_query = f"""
         SELECT Owner.Name, Hours__c, Time_Type__c
-        FROM Timesheet__c
-        WHERE Date__c = LAST_N_DAYS:7
-        AND OwnerId IN (SELECT Id FROM User WHERE ManagerId = '{manager_id_for_query}')
-        ORDER BY Owner.Name
+        FROM Timesheet__c WHERE Date__c = LAST_N_DAYS:7 AND OwnerId IN (SELECT Id FROM User WHERE ManagerId = '{manager_id_for_query}')
     """
     try:
         results = sf.query(soql_query)
-        team_data = {}
+        # Aggregate data by user
+        team_agg = {}
         for record in results['records']:
-            owner_name = record['Owner']['Name']
-            if owner_name not in team_data:
-                team_data[owner_name] = []
-            team_data[owner_name].append({
-                'type': record['Time_Type__c'],
-                'hours': record['Hours__c']
-            })
-        return team_data
+            name = record['Owner']['Name']
+            if name not in team_agg:
+                team_agg[name] = {'Total': 0, 'PTO': 0, 'Work': 0}
+            
+            hours = record['Hours__c']
+            team_agg[name]['Total'] += hours
+            if record['Time_Type__c'] == 'PTO':
+                team_agg[name]['PTO'] += hours
+            else:
+                team_agg[name]['Work'] += hours
+        return team_agg
     except Exception as e:
         print(f"Error fetching team data: {e}")
         return {}
+
 
 def generate_team_summary_insight(team_data):
     """Uses GenAI to analyze aggregated team data and create a summary for a manager."""
@@ -534,6 +533,7 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
 
