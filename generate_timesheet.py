@@ -83,37 +83,104 @@ timesheet_function = {
 # -----------------------------
 # PDF Generation
 # -----------------------------
+
+class PDF(FPDF):
+    def header(self):
+    
+        self.image('logo.png', 10, 8, 25)
+        self.set_font('Inter', 'B', 20)
+        self.cell(0, 10, 'Weekly Timesheet Summary', 0, 1, 'C')
+        self.ln(15)
+
+    def footer(self):
+        
+        self.set_y(-15)
+        self.set_font('Inter', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+
 def create_timesheet_pdf(submitted_data):
-    """Generates a PDF of the timesheet and returns the file path."""
-    pdf = FPDF()
+    """Generates a professional, branded PDF with a table and color."""
+    
+    pdf = PDF('P', 'mm', 'A4')
+    
+    try:
+        pdf.add_font('Inter', '', 'Inter-Regular.ttf', uni=True)
+        pdf.add_font('Inter', 'B', 'Inter-Bold.ttf', uni=True) 
+        pdf.add_font('Inter', 'I', 'Inter-Italic.ttf', uni=True) 
+        pdf.set_font('Inter', '', 11)
+    except RuntimeError:
+        print("Font file not found. Using default Arial.")
+        pdf.set_font('Arial', '', 11)
+
+
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
+    
+    pdf.set_font('Inter', 'B', 12)
+    pdf.set_fill_color(240, 240, 240) 
+    pdf.cell(30, 10, 'Day', 1, 0, 'C', 1)
+    pdf.cell(70, 10, 'Details', 1, 0, 'C', 1)
+    pdf.cell(25, 10, 'Hours', 1, 0, 'C', 1)
+    pdf.cell(65, 10, 'Productivity Insight', 1, 1, 'C', 1)
 
-    # Header
-    pdf.cell(200, 10, txt="Timesheet Summary for the Week", ln=1, align="C")
-    pdf.ln(5)
-
-    # Timesheet data
     total_hours = 0
     for day, hours_data in submitted_data.items():
+        pdf.set_font('Inter', '', 10)
+        is_pto = 'PTO' in hours_data['data']
         daily_hours = sum(hours_data['data'].values())
-        total_hours += daily_hours
-        pdf.cell(200, 10, txt=f"{day} - {daily_hours} hours", ln=1)
+        
+        if not is_pto:
+            total_hours += daily_hours
+
+        y_before = pdf.get_y()
+        
+        pdf.multi_cell(30, 8, day, 1, 'L')
+        
+        details_str = ""
         for activity, hours in hours_data['data'].items():
-            pdf.cell(200, 10, txt=f"  - {activity}: {hours} hours", ln=1)
+            details_str += f"- {activity}: {hours} hrs\n"
+        
+        pdf.set_y(y_before)
+        pdf.set_x(40) 
+        pdf.multi_cell(70, 8, details_str.strip(), 1, 'L')
 
-    # Productivity meter
-    pdf.ln(10)
-    pdf.set_font("Arial", 'B', 16)
-    if total_hours >= 40:
-        productivity_message = "Weekly Productivity: Excellent!"
-    elif total_hours >= 32:
-        productivity_message = "Weekly Productivity: Good!"
-    else:
-        productivity_message = "Weekly Productivity: Can do better!."
-    pdf.cell(200, 10, txt=f"{productivity_message} ({total_hours} hours)", ln=1, align="C")
+        pdf.set_y(y_before)
+        pdf.set_x(110) 
+        pdf.multi_cell(25, 8, str(daily_hours), 1, 'C')
 
-    # Save the PDF
+        daily_productivity_message = ""
+        color = (0, 0, 0) # Default to black
+        
+        if is_pto:
+            daily_productivity_message = "On Leave"
+            color = (128, 128, 128) # Grey
+        else:
+            if daily_hours >= 10:
+                daily_productivity_message = "Excellent! Remember to get some rest."
+                color = (220, 53, 69) # Red (for the warning)
+            elif daily_hours >= 8:
+                daily_productivity_message = "Excellent! Keep it up."
+                color = (40, 167, 69) # Green
+            elif daily_hours >= 6:
+                daily_productivity_message = "Good. Solid day."
+                color = (0, 123, 255) # Blue
+            else:
+                daily_productivity_message = "Room for improvement."
+                color = (255, 193, 7) # Yellow/Orange
+
+        pdf.set_text_color(*color)
+        pdf.set_y(y_before)
+        pdf.set_x(135) # 110 + 25
+        pdf.multi_cell(65, 8, daily_productivity_message, 1, 'C')
+        
+        # Reset text color for the next row
+        pdf.set_text_color(0, 0, 0)
+
+    # --- NEW: Final summary row for the table ---
+    pdf.set_font('Inter', 'B', 12)
+    pdf.set_fill_color(240, 240, 240)
+    pdf.cell(100, 12, 'Total Productive Hours', 1, 0, 'R', 1)
+    pdf.cell(90, 12, f'{total_hours} hours', 1, 1, 'C', 1)
+
     pdf_path = f"timesheet_summary_{datetime.date.today().isoformat()}.pdf"
     pdf.output(pdf_path)
     return pdf_path
@@ -606,6 +673,7 @@ def generate_productivity_insights(timesheet_data):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
