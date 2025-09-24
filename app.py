@@ -99,8 +99,20 @@ def get_insight():
     insight_result = generate_timesheet.generate_productivity_insights(final_draft)
     return jsonify(insight_result)
 
+
+@app.route('/team_summary/<manager_id>')
+def team_summary(manager_id):
+    team_data = generate_timesheet.get_team_timesheet_data(manager_id)
+    if not team_data:
+        return jsonify({"status": "error", "message": "No data found for this team or manager ID."})
+    
+    ai_summary = generate_timesheet.generate_team_summary_insight(team_data)
+    return jsonify(ai_summary)
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
 
