@@ -516,32 +516,11 @@ def update_draft_from_chat(user_message):
 
 
 
-def _update_draft_hours(day, hours, activity='Misc'):
-    """
-    Safely sets the total hours for a given day, correctly handling PTO.
-    """
-    global _TIMESHEET_DRAFT
-    day_capitalized = day.capitalize()
-
-    if _TIMESHEET_DRAFT and day_capitalized in _TIMESHEET_DRAFT:
-        
-        _TIMESHEET_DRAFT[day_capitalized]['data'] = {
-            'Meetings': 0,
-            'Misc': 0
-        }
-        
-        if activity.upper() == 'PTO':
-            _TIMESHEET_DRAFT[day_capitalized]['data']['PTO'] = float(hours)
-        else:
-            _TIMESHEET_DRAFT[day_capitalized]['data']['Misc'] = float(hours)
-        
-        return True 
-    return False 
-
+# In generate_timesheet.py
 
 def process_chat_command(user_message):
     """
-    Processes advanced user commands, extracting day, hours, AND activity.
+    Processes advanced user commands, including multiple actions in a single sentence.
     """
     global _TIMESHEET_DRAFT
     message_lower = user_message.lower()
@@ -550,14 +529,21 @@ def process_chat_command(user_message):
         return {'status': 'submitting', 'response': 'Great! Finalizing and submitting your timesheet now...', 'draft': _TIMESHEET_DRAFT}
 
     try:
+        # --- NEW: A more advanced prompt that asks for a LIST of actions ---
         prompt = f"""
-        Analyze the user's timesheet request: '{user_message}'.
-        Extract the day, hours, and activity.
-        The day must be one of: Monday, Tuesday, Wednesday, Thursday, Friday.
-        The hours MUST be a number. If the activity is 'PTO', assume 8 hours.
-        The activity is what the user is describing (e.g., 'PTO', 'Misc', 'Project Work').
-        Respond ONLY with a JSON object in the format {{"day": "...", "hours": ..., "activity": "..."}}.
-        If you cannot determine all values, respond with {{"error": "incomplete information"}}.
+        You are a powerful timesheet parsing engine. Analyze the user's request: '{user_message}'.
+        Your task is to extract ALL actions the user wants to take. Some requests may have one action, others may have multiple.
+        
+        For each action, extract the day, the hours, and the activity.
+        - The day must be one of: Monday, Tuesday, Wednesday, Thursday, Friday.
+        - The hours MUST be a number. If the activity is 'PTO', and no hours are mentioned, assume 8.
+        - The activity is what the user is describing (e.g., 'PTO', 'Misc', 'Project Work').
+
+        Respond ONLY with a single JSON object. The object should have one key, "actions", which contains a list of action objects.
+        Example for "Change Monday to 4 hours PTO and 4 hours misc":
+        {{"actions": [{{"day": "Monday", "hours": 4, "activity": "PTO"}}, {{"day": "Monday", "hours": 4, "activity": "Misc"}}]}}
+        
+        If you cannot determine any valid actions, respond with {{"actions": []}}.
         """
         
         model = genai.GenerativeModel('gemini-1.5-flash-latest')
@@ -565,20 +551,32 @@ def process_chat_command(user_message):
         
         json_response_text = response.text.strip().replace('`', '').replace('json', '')
         parsed_data = json.loads(json_response_text)
+        actions = parsed_data.get('actions', [])
 
-        if 'error' in parsed_data:
-            return {"status": "error", "response": "I'm sorry, I didn't quite understand. Please specify the day, hours, and activity."}
+        if not actions:
+            return {"status": "error", "response": "I'm sorry, I couldn't find any specific actions in your request."}
 
-        day = parsed_data.get('day')
-        hours = parsed_data.get('hours')
-        activity = parsed_data.get('activity', 'Misc') 
+        # --- NEW: Loop through the list of actions and apply each one ---
+        confirmation_messages = []
+        # First, clear the day's data once to avoid conflicts
+        day_to_update = actions[0].get('day')
+        if day_to_update:
+             _TIMESHEET_DRAFT[day_to_update.capitalize()]['data'] = {'Meetings': 0, 'Misc': 0}
 
-        if day and hours is not None:
-            # We now pass the 'activity' to our helper function
-            if _update_draft_hours(day, hours, activity):
-                 return {"status": "success", "response": f"Okay. I've updated {day} to {hours} hours for {activity}.", "draft": _TIMESHEET_DRAFT}
-            else:
-                return {"status": "error", "response": f"I couldn't find {day} in the current draft."}
+        for action in actions:
+            day = action.get('day')
+            hours = action.get('hours')
+            activity = action.get('activity', 'Misc')
+
+            if day and hours is not None:
+                if _update_draft_hours(day, hours, activity, clear_day=False): # Pass a flag to prevent re-clearing
+                    confirmation_messages.append(f"{hours} hours for {activity}")
+                else:
+                    return {"status": "error", "response": f"I couldn't find {day} in the current draft."}
+        
+        if confirmation_messages:
+            full_confirmation = f"OK. I've updated {day_to_update} with " + " and ".join(confirmation_messages) + "."
+            return {"status": "success", "response": full_confirmation, "draft": _TIMESHEET_DRAFT}
 
     except Exception as e:
         print(f"AI parsing or draft update failed: {e}")
@@ -586,6 +584,29 @@ def process_chat_command(user_message):
     
     return {"status": "error", "response": "I was unable to update the timesheet with that information. Please try again."}
 
+
+# --- You also need to slightly modify the helper function to support this ---
+def _update_draft_hours(day, hours, activity='Misc', clear_day=True):
+    """
+    Safely sets hours, with an option to prevent clearing the day's data.
+    """
+    global _TIMESHEET_DRAFT
+    day_capitalized = day.capitalize()
+
+    if _TIMESHEET_DRAFT and day_capitalized in _TIMESHEET_DRAFT:
+        if clear_day:
+            _TIMESHEET_DRAFT[day_capitalized]['data'] = {'Meetings': 0, 'Misc': 0}
+        
+        current_hours = _TIMESHEET_DRAFT[day_capitalized]['data'].get(activity.upper(), 0)
+        
+        if activity.upper() == 'PTO':
+            _TIMESHEET_DRAFT[day_capitalized]['data']['PTO'] = current_hours + float(hours)
+        else:
+            # For simplicity, lump all non-PTO work into Misc
+            _TIMESHEET_DRAFT[day_capitalized]['data']['Misc'] += float(hours)
+        
+        return True
+    return False
 # FAQs from Salesforce
 # -----------------------------
 def get_faqs_from_salesforce():
@@ -677,6 +698,7 @@ def generate_productivity_insights(timesheet_data):
 if __name__ == '__main__':
     draft = generate_timesheet_draft()
     print("Draft generated:", draft)
+
 
 
 
