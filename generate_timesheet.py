@@ -263,7 +263,7 @@ def submit_to_salesforce(submitted_data):
         return {'status': 'error', 'message': 'Salesforce connection failed.'}
 
     try:
-        user_info = sf.query("SELECT Id, ManagerId FROM User WHERE Username = 'your_salesforce_username@example.com'")
+        user_info = sf.query("SELECT Id, ManagerId FROM User WHERE Username = 'sakshi.saini427@agentforce.com'")
         manager_id = user_info['records'][0]['ManagerId']
     except Exception as e:
         return {'status': 'error', 'message': f"Error finding manager: {e}"}
@@ -454,3 +454,4 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
