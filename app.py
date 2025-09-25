@@ -100,36 +100,27 @@ def get_insight():
     return jsonify(insight_result)
 
 # In app.py
-
 @app.route('/team_summary/<manager_id>')
 def team_summary(manager_id):
-    team_data = generate_timesheet.get_team_timesheet_data(manager_id)
-    if not team_data:
+    team_data_with_ids = generate_timesheet.get_team_timesheet_data(manager_id)
+    if not team_data_with_ids:
         return jsonify({"status": "error", "message": "No data found for this team."})
     
-    labels = list(team_data.keys())
-    chart_data = {
-        'labels': labels,
-        'datasets': [
-            {
-                'label': 'Work Hours',
-                'data': [data['Work'] for data in team_data.values()],
-                'backgroundColor': 'rgba(0, 123, 255, 0.7)' # Blue
-            },
-            {
-                'label': 'PTO Hours',
-                'data': [data['PTO'] for data in team_data.values()],
-                'backgroundColor': 'rgba(108, 117, 125, 0.7)' # Grey
-            }
-        ]
-    }
+    # Prepare data for Chart.js
+    labels = list(team_data_with_ids.keys())
+    chart_data = { 'labels': labels, 'datasets': [
+            {'label': 'Work Hours', 'data': [d['Work'] for d in team_data_with_ids.values()], 'backgroundColor': 'rgba(0, 123, 255, 0.7)'},
+            {'label': 'PTO Hours', 'data': [d['PTO'] for d in team_data_with_ids.values()], 'backgroundColor': 'rgba(108, 117, 125, 0.7)'}
+    ]}
     
-    ai_summary = generate_timesheet.generate_team_summary_insight(team_data)
+    # Pass the raw data to the AI for analysis
+    ai_summary = generate_timesheet.generate_team_summary_insight(team_data_with_ids)
     
     return jsonify({
         "status": "success",
         "chartData": chart_data,
-        "aiSummary": ai_summary['summary']
+        "aiSummary": ai_summary.get('summary', ''),
+        "teamDataWithIds": team_data_with_ids # Pass the detailed data to the frontend
     })
 
 @app.route('/approve_timesheets', methods=['POST'])
@@ -153,6 +144,7 @@ def reject_timesheets_endpoint():
     return jsonify({"status": "error", "message": "Failed to reject timesheets."}), 500
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
 
