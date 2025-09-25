@@ -123,16 +123,19 @@ def team_summary(manager_id):
         "teamDataWithIds": team_data_with_ids # Pass the detailed data to the frontend
     })
 
+
 @app.route('/approve_timesheets', methods=['POST'])
 def approve_timesheets_endpoint():
     data = request.json
     timesheet_ids = data.get('ids', [])
+    print(f"DEBUG: Received IDs for approval: {timesheet_ids}")
+    
     success = generate_timesheet.approve_timesheets(timesheet_ids)
     if success:
         return jsonify({"status": "success", "message": "Timesheets approved."})
     return jsonify({"status": "error", "message": "Failed to approve timesheets."}), 500
 
-@app.route('/reject_timesheets', methods=['POST'])
+
 def reject_timesheets_endpoint():
     data = request.json
     timesheet_ids = data.get('ids', [])
@@ -144,6 +147,7 @@ def reject_timesheets_endpoint():
     return jsonify({"status": "error", "message": "Failed to reject timesheets."}), 500
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
 
