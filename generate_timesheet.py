@@ -534,7 +534,7 @@ def approve_timesheets(timesheet_ids):
     if not sf or not timesheet_ids:
         return False
     
-    updates = [{'Id': ts_id, 'Status__c': 'Approved'} for ts_id in timesheet_ids]
+    updates = [{'id': ts_id, 'Status__c': 'Approved'} for ts_id in timesheet_ids]
     try:
         results = sf.bulk.Timesheet__c.update(updates)
         print(f"Approval Results: {results}")
@@ -549,7 +549,7 @@ def reject_timesheets(timesheet_ids, reason, rejected_by_name):
     if not sf or not timesheet_ids:
         return False
 
-    updates = [{'Id': ts_id, 'Status__c': 'Rejected'} for ts_id in timesheet_ids]
+    updates = [{'id': ts_id, 'Status__c': 'Rejected'} for ts_id in timesheet_ids]
     try:
         # Update records to Rejected
         sf.bulk.Timesheet__c.update(updates)
@@ -584,6 +584,7 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
 
