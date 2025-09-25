@@ -473,30 +473,40 @@ def delete_timesheet_records(record_ids):
         return {'status': 'error', 'message': f"Error deleting records: {e}"}
 
 
+# In generate_timesheet.py
+
 def get_team_timesheet_data(manager_id):
-    """Queries Salesforce and aggregates team data for charts and AI analysis."""
+    """
+    Queries Salesforce and aggregates team data, including the individual timesheet IDs for each user.
+    """
     sf = connect_to_salesforce()
-    manager_id_for_query = '005gK000007m2xxQAA'
+    
+    manager_id_for_query = '005gK000007m2xxQAA' 
+
     soql_query = f"""
-        SELECT Owner.Name, Hours__c, Time_Type__c
-        FROM Timesheet__c WHERE Date__c = THIS_WEEK AND OwnerId IN (SELECT Id FROM User WHERE ManagerId = '{manager_id_for_query}')
+        SELECT Id, Owner.Name, Hours__c, Time_Type__c
+        FROM Timesheet__c 
+        WHERE Date__c = THIS_WEEK AND Status__c = 'Submitted'
+        AND OwnerId IN (SELECT Id FROM User WHERE ManagerId = '{manager_id_for_query}')
     """
     try:
         results = sf.query(soql_query)
-        # Aggregate data by user
-        team_agg = {}
+        team_data_with_ids = {}
         for record in results['records']:
             name = record['Owner']['Name']
-            if name not in team_agg:
-                team_agg[name] = {'Total': 0, 'PTO': 0, 'Work': 0}
+            if name not in team_data_with_ids:
+
+                team_data_with_ids[name] = {'Work': 0, 'PTO': 0, 'ids': []}
             
             hours = record['Hours__c']
-            team_agg[name]['Total'] += hours
+            
+            team_data_with_ids[name]['ids'].append(record['Id'])
+
             if record['Time_Type__c'] == 'PTO':
-                team_agg[name]['PTO'] += hours
+                team_data_with_ids[name]['PTO'] += hours
             else:
-                team_agg[name]['Work'] += hours
-        return team_agg
+                team_data_with_ids[name]['Work'] += hours
+        return team_data_with_ids
     except Exception as e:
         print(f"Error fetching team data: {e}")
         return {}
@@ -584,6 +594,7 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
 
