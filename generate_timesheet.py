@@ -587,6 +587,8 @@ def reject_timesheets(timesheet_ids, reason, rejected_by_name):
         return False
 
 
+    # In generate_timesheet.py
+
 def get_users_with_missing_timesheets(manager_id):
     """
     Compares all users under a manager with those who have submitted timesheets
@@ -594,20 +596,24 @@ def get_users_with_missing_timesheets(manager_id):
     """
     sf = connect_to_salesforce()
     try:
+        # 1. Get all active users who report to this manager
         all_team_members_query = f"SELECT Name FROM User WHERE ManagerId = '{manager_id}' AND IsActive = true"
         all_team_results = sf.query(all_team_members_query)
         all_team_names = {user['Name'] for user in all_team_results['records']}
 
+        # 2. Get the names of users from that team who HAVE submitted this week
+        # --- THIS IS THE CORRECTED QUERY ---
         submitters_query = f"""
             SELECT Owner.Name 
             FROM Timesheet__c 
             WHERE Date__c = THIS_WEEK AND Status__c = 'Submitted'
-            AND Owner.ManagerId = '{manager_id}'
+            AND OwnerId IN (SELECT Id FROM User WHERE ManagerId = '{manager_id}')
             GROUP BY Owner.Name
         """
         submitter_results = sf.query(submitters_query)
         submitter_names = {record['Owner']['Name'] for record in submitter_results['records']}
 
+        # 3. Find the difference
         missing_names = list(all_team_names - submitter_names)
         return missing_names
 
@@ -621,6 +627,7 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
 
