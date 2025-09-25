@@ -104,13 +104,6 @@ def get_insight():
 def team_summary(manager_id):
     team_data_with_ids = generate_timesheet.get_team_timesheet_data(manager_id)
     
-    if not team_data_with_ids:
-        missing_users = generate_timesheet.get_users_with_missing_timesheets(manager_id)
-        return jsonify({
-            "status": "pending", # A new status for this state
-            "message": "There are no timesheets awaiting your approval.",
-            "missingUsers": missing_users
-        })
 
     labels = list(team_data_with_ids.keys())
     chart_data = { 'labels': labels, 'datasets': [
@@ -124,7 +117,6 @@ def team_summary(manager_id):
         "chartData": chart_data,
         "aiSummary": ai_summary.get('summary', ''),
         "teamDataWithIds": team_data_with_ids,
-        "missingUsers": [] # Send empty list on success
     })
 
 @app.route('/approve_timesheets', methods=['POST'])
@@ -150,6 +142,7 @@ def reject_timesheets_endpoint():
     return jsonify({"status": "error", "message": "Failed to reject timesheets."}), 500
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
 
