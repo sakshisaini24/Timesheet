@@ -132,9 +132,28 @@ def team_summary(manager_id):
         "aiSummary": ai_summary['summary']
     })
 
+@app.route('/approve_timesheets', methods=['POST'])
+def approve_timesheets_endpoint():
+    data = request.json
+    timesheet_ids = data.get('ids', [])
+    success = generate_timesheet.approve_timesheets(timesheet_ids)
+    if success:
+        return jsonify({"status": "success", "message": "Timesheets approved."})
+    return jsonify({"status": "error", "message": "Failed to approve timesheets."}), 500
 
+@app.route('/reject_timesheets', methods=['POST'])
+def reject_timesheets_endpoint():
+    data = request.json
+    timesheet_ids = data.get('ids', [])
+    reason = data.get('reason', 'No reason provided.')
+    manager_name = data.get('manager_name', 'Manager')
+    success = generate_timesheet.reject_timesheets(timesheet_ids, reason, manager_name)
+    if success:
+        return jsonify({"status": "success", "message": "Timesheets rejected and user notified."})
+    return jsonify({"status": "error", "message": "Failed to reject timesheets."}), 500
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
 
