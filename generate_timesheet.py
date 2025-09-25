@@ -526,6 +526,57 @@ def generate_team_summary_insight(team_data):
     except Exception as e:
         print(f"Error generating team summary: {e}")
         return {"status": "error", "message": "An error occurred while generating the AI summary. The AI service may be busy."}
+
+
+def approve_timesheets(timesheet_ids):
+    """Updates the status of given Timesheet records to 'Approved' in Salesforce."""
+    sf = connect_to_salesforce()
+    if not sf or not timesheet_ids:
+        return False
+    
+    updates = [{'Id': ts_id, 'Status__c': 'Approved'} for ts_id in timesheet_ids]
+    try:
+        results = sf.bulk.Timesheet__c.update(updates)
+        print(f"Approval Results: {results}")
+        return all(r.get('success', False) for r in results)
+    except Exception as e:
+        print(f"Error approving timesheets: {e}")
+        return False
+
+def reject_timesheets(timesheet_ids, reason, rejected_by_name):
+    """Updates the status to 'Rejected' and posts a Chatter notification."""
+    sf = connect_to_salesforce()
+    if not sf or not timesheet_ids:
+        return False
+
+    updates = [{'Id': ts_id, 'Status__c': 'Rejected'} for ts_id in timesheet_ids]
+    try:
+        # Update records to Rejected
+        sf.bulk.Timesheet__c.update(updates)
+        
+        # Post a single Chatter notification for the first rejected timesheet's owner
+        # In a real app, you might post to each owner. For a demo, one is sufficient.
+        ts_to_notify = sf.Timesheet__c.get(timesheet_ids[0])
+        owner_id = ts_to_notify.get('OwnerId')
+        
+        chatter_post_url = f"/services/data/v59.0/chatter/feed-elements"
+        chatter_body = {
+            "body": {
+                "messageSegments": [
+                    {"type": "Text", "text": f"Hi @[{owner_id}], your timesheet was rejected by {rejected_by_name}. Reason: "},
+                    {"type": "Text", "text": reason}
+                ]
+            },
+            "feedElementType": "FeedItem",
+            "subjectId": owner_id # Post to the user's profile feed
+        }
+        sf.restful(chatter_post_url, method='POST', data=json.dumps(chatter_body))
+        return True
+    except Exception as e:
+        print(f"Error rejecting timesheets: {e}")
+        return False
+
+
 # ==============================================================================
 # --- MAIN EXECUTION BLOCK (FOR TESTING) ---
 # ==============================================================================
@@ -533,6 +584,7 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
 
