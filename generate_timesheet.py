@@ -479,7 +479,7 @@ def get_team_timesheet_data(manager_id):
     manager_id_for_query = '005gK000007m2xxQAA'
     soql_query = f"""
         SELECT Owner.Name, Hours__c, Time_Type__c
-        FROM Timesheet__c WHERE Date__c = LAST_N_DAYS:7 AND OwnerId IN (SELECT Id FROM User WHERE ManagerId = '{manager_id_for_query}')
+        FROM Timesheet__c WHERE Date__c = THIS_WEEK AND OwnerId IN (SELECT Id FROM User WHERE ManagerId = '{manager_id_for_query}')
     """
     try:
         results = sf.query(soql_query)
@@ -533,6 +533,7 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
 
