@@ -105,6 +105,7 @@ def get_insight():
 def team_summary(manager_id):
     team_data_with_ids = generate_timesheet.get_team_timesheet_data(manager_id)
     
+    missing_users = generate_timesheet.get_users_with_missing_timesheets(manager_id)
     
     labels = list(team_data_with_ids.keys())
     chart_data = { 'labels': labels, 'datasets': [
@@ -117,7 +118,8 @@ def team_summary(manager_id):
         "status": "success",
         "chartData": chart_data,
         "aiSummary": ai_summary.get('summary', ''),
-        "teamDataWithIds": team_data_with_ids
+        "teamDataWithIds": team_data_with_ids,
+        "missingUsers": missing_users
     })
 
 
@@ -144,6 +146,7 @@ def reject_timesheets_endpoint():
     return jsonify({"status": "error", "message": "Failed to reject timesheets."}), 500
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
 
