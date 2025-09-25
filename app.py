@@ -7,7 +7,8 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {
     "origins": [
         "https://orgfarm-2bc7acb5c3-dev-ed.develop.vf.force.com",
-        "https://orgfarm-2bc7acb5c3-dev-ed--c.develop.vf.force.com"
+        "https://orgfarm-2bc7acb5c3-dev-ed--c.develop.vf.force.com",
+        "https://orgfarm-2bc7acb5c3-dev-ed.develop.lightning.force.com" # <-- ADD THIS LINE
     ],
     "methods": ["GET", "POST", "OPTIONS"],
     "allow_headers": ["Content-Type", "Authorization"]
@@ -155,6 +156,7 @@ def reject_timesheets_endpoint():
     return jsonify({"status": "error", "message": "Failed to reject timesheets."}), 500
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
 
