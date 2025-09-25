@@ -144,7 +144,7 @@ def approve_timesheets_endpoint():
         return jsonify({"status": "success", "message": "Timesheets approved."})
     return jsonify({"status": "error", "message": "Failed to approve timesheets."}), 500
 
-
+@app.route('/reject_timesheets', methods=['POST'])
 def reject_timesheets_endpoint():
     data = request.json
     timesheet_ids = data.get('ids', [])
@@ -156,6 +156,7 @@ def reject_timesheets_endpoint():
     return jsonify({"status": "error", "message": "Failed to reject timesheets."}), 500
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
 
