@@ -154,8 +154,24 @@ def reject_timesheets_endpoint():
     if success:
         return jsonify({"status": "success", "message": "Timesheets rejected and user notified."})
     return jsonify({"status": "error", "message": "Failed to reject timesheets."}), 500
+
+
+
+@app.route('/get_answer/<article_id>')
+def get_answer(article_id):
+    try:
+        answer = generate_timesheet.get_and_summarize_answer(article_id)
+        if answer:
+            return jsonify({'status': 'success', 'answer': answer})
+        else:
+            return jsonify({'status': 'error', 'message': 'Article not found.'}), 404
+    except Exception as e:
+        print(f"Error getting answer: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
 
