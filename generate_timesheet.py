@@ -384,6 +384,8 @@ def process_chat_command(user_message):
         {{"actions": [{{"day": "Monday", "hours": 4, "activity": "PTO"}}, {{"day": "Monday", "hours": 2, "activity": "Misc"}}, {{"day": "Monday", "hours":2, "activity":"Meetings"]}}
         If no valid actions, respond with {{"actions": []}}.
         """
+
+
         model = genai.GenerativeModel('gemini-1.5-flash-latest')
         response = model.generate_content(prompt)
         json_response_text = response.text.strip().replace('`', '').replace('json', '')
@@ -436,6 +438,8 @@ def generate_productivity_insights(timesheet_data):
         Based on this data, provide ONE concise, positive, and actionable insight for the user.
         Frame it as a helpful observation. Keep the entire response to under 40 words.
         """
+
+
         model = genai.GenerativeModel('gemini-1.5-flash-latest')
         response = model.generate_content(prompt)
         return {"status": "success", "insight": response.text}
@@ -526,6 +530,8 @@ def generate_team_summary_insight(team_data):
     Be direct and frame your points as helpful observations.
     """
     try:
+
+
         model = genai.GenerativeModel('gemini-1.5-flash-latest')
         response = model.generate_content(prompt)
         return {"status": "success", "summary": response.text}
@@ -595,6 +601,7 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
 
