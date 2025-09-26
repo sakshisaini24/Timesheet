@@ -595,10 +595,9 @@ def reject_timesheets(timesheet_ids, reason, rejected_by_name):
 
 
 HARDCODED_ANSWERS = {
-    'ka0..._ID_FOR_QUESTION_1': "To track your productivity and work-life balance, we analyze the time you spend in meetings versus on project tasks. Logging your PTO accurately also helps your manager with resource planning!",
-    'ka0..._ID_FOR_QUESTION_2': "You should fill in any work that isn't automatically captured from your calendar. This includes deep work sessions or ad-hoc client calls. Just tell me, for example, 'Add 3 hours of project work to Tuesday'.",
-    'ka0..._ID_FOR_QUESTION_3': "Timesheets are a simple record of how you spend your work hours. They are crucial for accurate client billing, project costing, and ensuring you are paid correctly and on time.",
-    'ka0..._ID_FOR_QUESTION_4': "I can help you generate your timesheet draft, make changes to it using natural language, answer these questions, and provide a productivity insight once you're done!"
+    'kA0gK000000BiTxSAK': "To track your productivity and work-life balance, we analyze the time you spend in meetings versus on project tasks. Logging your PTO accurately also helps your manager with resource planning!",
+    'ka0gK000000EH2bQAG': "You should fill in any work that isn't automatically captured from your calendar. This includes deep work sessions or ad-hoc client calls. Just tell me, for example, 'Add 3 hours of project work to Tuesday'.",
+    'ka0gK000000EH0zQAG': "Timesheets are a simple record of how you spend your work hours. They are crucial for accurate client billing, project costing, and ensuring you are paid correctly and on time.",
 }
 
 def get_and_summarize_answer(article_id):
@@ -620,4 +619,5 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
