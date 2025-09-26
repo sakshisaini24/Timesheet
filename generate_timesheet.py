@@ -595,18 +595,18 @@ def reject_timesheets(timesheet_ids, reason, rejected_by_name):
 
 
 HARDCODED_ANSWERS = {
-    'kA0gK000000BiTxSAK': "To track your productivity and work-life balance, we analyze the time you spend in meetings versus on project tasks. Logging your PTO accurately also helps your manager with resource planning!",
-    'ka0gK000000EH2bQAG': "You should fill in any work that isn't automatically captured from your calendar. This includes deep work sessions or ad-hoc client calls. Just tell me, for example, 'Add 3 hours of project work to Tuesday'.",
-    'ka0gK000000EH0zQAG': "Timesheets are a simple record of how you spend your work hours. They are crucial for accurate client billing, project costing, and ensuring you are paid correctly and on time.",
+    'q1': "To track your productivity, we analyze the time you spend in meetings versus on project tasks. A healthy work-life balance is maintained by ensuring you log any PTO, which helps managers with resource planning!",
+    'q2': "You should fill in any work that isn't automatically captured from your calendar. This includes deep work sessions or ad-hoc client calls. You can tell me, for example, 'Add 3 hours of project work to Tuesday'.",
+    'q3': "Timesheets are a simple record of how you spend your work hours. They are crucial for accurate client billing, project costing, and ensuring you are paid correctly and on time."
 }
 
 def get_and_summarize_answer(article_id):
     """
     FOR DEMO PURPOSES: Returns a hardcoded answer for a given article ID.
-    Bypasses Salesforce and the AI summarizer.
     """
     print(f"--- DEMO MODE: Fetching hardcoded answer for ID: {article_id} ---")
     
+    # Look up the answer in our hardcoded dictionary using the simple key (q1, q2, etc.)
     default_answer = "Sorry, I don't have a specific answer for that question right now."
     answer = HARDCODED_ANSWERS.get(article_id, default_answer)
     
@@ -619,5 +619,6 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
