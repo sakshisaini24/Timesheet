@@ -387,6 +387,8 @@ def process_chat_command(user_message):
 
 
         model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        print(f"--- DIAGNOSTIC V2: ATTEMPTING TO USE MODEL: {model_name_to_use} ---")
+
         response = model.generate_content(prompt)
         json_response_text = response.text.strip().replace('`', '').replace('json', '')
         parsed_data = json.loads(json_response_text)
@@ -601,6 +603,7 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
 
