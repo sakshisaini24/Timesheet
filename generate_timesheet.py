@@ -386,7 +386,7 @@ def process_chat_command(user_message):
         """
 
 
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         print(f"--- DIAGNOSTIC V2: ATTEMPTING TO USE MODEL: {model_name_to_use} ---")
 
         response = model.generate_content(prompt)
@@ -442,7 +442,7 @@ def generate_productivity_insights(timesheet_data):
         """
 
 
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(prompt)
         return {"status": "success", "insight": response.text}
     except Exception as e:
@@ -534,7 +534,7 @@ def generate_team_summary_insight(team_data):
     try:
 
 
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(prompt)
         return {"status": "success", "summary": response.text}
     
@@ -603,6 +603,7 @@ if __name__ == '__main__':
     print("Generating initial timesheet draft...")
     draft = generate_timesheet_draft()
     print("Draft generated:", json.dumps(draft, indent=2))
+
 
 
 
