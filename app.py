@@ -169,8 +169,22 @@ def get_answer(article_id):
         print(f"Error getting answer: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+
+
+@app.route('/download_guide')
+def download_guide():
+    """Serves the static PDF guide for download."""
+    try:
+        pdf_path = 'Company_Timesheet_Guide.pdf'
+        
+        return send_file(pdf_path, as_attachment=True)
+    except Exception as e:
+        print(f"Error serving PDF guide: {e}")
+        return "File not found.", 404
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
 
 
 
